@@ -12,8 +12,13 @@ class Transaction
     TransactionType type;
     bool isDeleted;
     public:
-    virtual void getEffectiveAmount=0;
-    
+    virtual void getEffectiveAmount()=0;
+    virtual void getType()=0;
+    virtual void display()=0;
+    virtual void serialize()=0;
+    virtual void deserialize()=0;
+    unsigned short int getter(unsigned short int get_Transaction_id) const;
+    void setter(const unsigned short int set_Transaction_id);
 };
 
 #endif
