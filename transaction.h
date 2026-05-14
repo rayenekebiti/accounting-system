@@ -18,7 +18,7 @@ class Transaction
     virtual void display()=0;
     virtual void serialize()=0;
     virtual void deserialize()=0;
-    unsigned short int id_getter(unsigned short int id_get) const;
+    unsigned short int id_getter() const;
     void id_setter(const unsigned short int set_id);
 
     const char* description_getter() const;
