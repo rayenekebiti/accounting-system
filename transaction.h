@@ -1,43 +1,44 @@
 #ifndef TRANSACTION_H
 #define TRANSACTION_H
 #include "constants.h"
+
 class Transaction
 {
-    protected:
+protected:
     unsigned short int id;
     char description[MAX_DESCRIPTION_LENGTH];
     double amount;
     char date[MAX_DATE_LENGTH];
-    unsigned short int category_id;
+    unsigned short int categoryId;
     TransactionType type;
-    bool isDeleted; 
-    public:
-    virtual ~Transaction()=default;
-    virtual double getEffectiveAmount()=0;
-    virtual TransactionType getType()=0;
-    virtual void display()=0;
-    virtual void serialize()=0;
-    virtual void deserialize()=0;
-    unsigned short int id_getter() const;
-    void id_setter(const unsigned short int set_id);
+    bool isDeleted;
 
-    const char* description_getter() const;
-    void description_setter(const char* set_description);
+public:
+    virtual ~Transaction() = default;
 
-    double amount_getter(double amount_get) const;
-    void amount_setter(const double set_amount);
+    virtual double getEffectiveAmount() const = 0;
+    virtual TransactionType getType() const = 0;
+    virtual void display() const = 0;
+    virtual void serialize(char* buffer) const = 0;
+    virtual void deserialize(const char* buffer) = 0;
 
-    const char* date_getter() const;
-    void date_setter(const char* set_date);
+    unsigned short int getId() const;
+    void setId(unsigned short int newId);
 
-    unsigned short int category_id_getter(unsigned short int category_id_get) const;
-    void category_id_setter(const unsigned short int set_category_id);
+    const char* getDescription() const;
+    void setDescription(const char* newDescription);
 
-    TransactionType type_getter(TransactionType type_get) const;
-    void type_setter(const TransactionType set_type);
+    double getAmount() const;
+    void setAmount(double newAmount);
 
-    bool isDeleted_getter(bool isDeleted_get) const;
-    void isDeleted_setter(const bool set_isDeleted);
+    const char* getDate() const;
+    void setDate(const char* newDate);
+
+    unsigned short int getCategoryId() const;
+    void setCategoryId(unsigned short int newCategoryId);
+
+    bool getIsDeleted() const;
+    void setIsDeleted(bool newIsDeleted);
 };
 
 #endif
