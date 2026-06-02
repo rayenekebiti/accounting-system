@@ -9,12 +9,14 @@ const unsigned short int MAX_BANK_NAME_LENGTH= 32;
 const unsigned short int MAX_CATEGORY_NAME_LENGTH = 32;
 const unsigned short int MAX_CATEGORY_TYPE_LENGTH =8; 
 const unsigned short int MAX_ACCOUNT_CREATION_DATE_LENGTH= 12;
-const unsigned short int MAX_ACCOUNT_NUM_LENGTH= 20;
+const unsigned short int MAX_ACCOUNT_NUM_LENGTH= 20; 
 
 const unsigned short int TRANSACTION_RECORD_SIZE = 128;
 const unsigned short int ACCOUNT_RECORD_SIZE     = 160;
 const unsigned short int CATEGORY_RECORD_SIZE    = 48;
 const unsigned short int BUDGET_RECORD_SIZE      = 32;
+
+const unsigned short int MAX_WITHDRAWAL_LIMIT    = 50000;
 
 enum TransactionType
 {
