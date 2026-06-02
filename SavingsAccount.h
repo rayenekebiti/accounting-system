@@ -7,4 +7,9 @@ class SavingsAccount: public BankAccount{
     float intrestRate;
     double withdrawalsThisMonth;
     double withdrawalLimit = MAX_WITHDRAWAL_LIMIT;
+
+    public:
+    bool canWithdraw(double) override;
+    double projectedInetrest(int);
+    AccountType getAccountType();
 };
