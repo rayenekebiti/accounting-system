@@ -9,14 +9,13 @@ struct ExpenseTransaction_info
     double amount;
     const char* date;
     unsigned short int categoryId;
-    TransactionType type;
     bool isDeleted;
 };
 
 class ExpenseTransaction : public Transaction
 {
 public:
-    ExpenseTransaction(ExpenseTransaction_info& info);
+    ExpenseTransaction(const ExpenseTransaction_info& info);
 
     double getEffectiveAmount() const override;
     TransactionType getType() const override;

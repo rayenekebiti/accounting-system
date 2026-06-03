@@ -1,10 +1,10 @@
 #ifndef TRANSACTION_H
 #define TRANSACTION_H
-#include "constants.h"
+#include "../constants.h"
 
 class Transaction
 {
-protected:   
+protected:
     unsigned short int id;
     char description[MAX_DESCRIPTION_LENGTH];
     double amount;
@@ -13,11 +13,7 @@ protected:
     TransactionType type;
     bool isDeleted;
 
-
 public:
-    Transaction(){};
-    Transaction(const Transaction& copy_Transaction){};
-    Transaction(Transaction&& move_Transaction){};
     virtual ~Transaction() = default;
     virtual double getEffectiveAmount() const = 0;
     virtual TransactionType getType() const = 0;
@@ -26,22 +22,22 @@ public:
     virtual void deserialize(const char* buffer) = 0;
 
     unsigned short int getId() const;
-    void setId(const unsigned short int newId);
+    void setId(unsigned short int newId);
 
     const char* getDescription() const;
     void setDescription(const char* newDescription);
 
     double getAmount() const;
-    void setAmount(const double newAmount);
+    void setAmount(double newAmount);
 
     const char* getDate() const;
     void setDate(const char* newDate);
 
     unsigned short int getCategoryId() const;
-    void setCategoryId(const unsigned short int newCategoryId);
+    void setCategoryId(unsigned short int newCategoryId);
 
     bool getIsDeleted() const;
-    void setIsDeleted(const bool newIsDeleted);
+    void setIsDeleted(bool newIsDeleted);
 };
 
 #endif
