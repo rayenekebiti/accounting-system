@@ -15,10 +15,13 @@ void PageRouter::registerPage(Page* page)
 
 void PageRouter::navigateTo(PageId id)
 {
-    if (id == m_currentId && m_stack->currentWidget() != nullptr) return;
+    const bool alreadyCurrent = (id == m_currentId && m_stack->currentWidget() != nullptr);
+    if (alreadyCurrent) return;
 
-    if (auto* prev = m_pages.value(m_currentId))
-        prev->onDeactivated();
+    if (m_stack->currentWidget() != nullptr) {
+        if (auto* prev = m_pages.value(m_currentId))
+            prev->onDeactivated();
+    }
 
     auto* page = m_pages.value(id, nullptr);
     if (!page) return;

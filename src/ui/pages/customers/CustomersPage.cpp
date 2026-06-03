@@ -1,6 +1,7 @@
 #include "pages/customers/CustomersPage.h"
 #include "components/inputs/FilterBar.h"
 #include "components/tables/DataTableView.h"
+#include "components/tables/PaginationFooter.h"
 #include <QAction>
 
 CustomersPage::CustomersPage(QWidget* parent) : ListPage(parent)

@@ -9,7 +9,7 @@
 ListPage::ListPage(QWidget* parent) : Page(parent)
 {
     m_table      = new DataTableView(this);
-    m_searchBar  = new SearchBar(this);
+    m_searchBar  = new SearchBar("Search...", this);
     m_filterBar  = new FilterBar(this);
     m_pagination = new PaginationFooter(this);
 }

@@ -4,6 +4,7 @@
 class QListWidget;
 class QSplitter;
 class QStackedWidget;
+class QFrame;
 class DataTableView;
 class QComboBox;
 class QPushButton;

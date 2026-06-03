@@ -1,6 +1,7 @@
 #include "pages/payments/PaymentsPage.h"
 #include "components/inputs/FilterBar.h"
 #include "components/tables/DataTableView.h"
+#include "components/tables/PaginationFooter.h"
 #include <QAction>
 
 PaymentsPage::PaymentsPage(QWidget* parent) : ListPage(parent)
