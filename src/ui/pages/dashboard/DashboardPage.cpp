@@ -6,6 +6,8 @@
 #include <QHBoxLayout>
 #include <QFrame>
 #include <QLabel>
+#include <QHeaderView>
+#include <QTableView>
 
 DashboardPage::DashboardPage(QWidget* parent) : Page(parent)
 {
@@ -77,7 +79,7 @@ void DashboardPage::buildListsRow(QWidget* container)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(16);
 
-    auto* makeCard = [&](const QString& title, DataTableView*& view, const QStringList& cols) {
+    auto buildCard = [&](const QString& title, DataTableView*& view, const QStringList& cols) -> QFrame* {
         auto* card = new QFrame(row);
         card->setObjectName("card");
         auto* vl = new QVBoxLayout(card);
@@ -92,6 +94,7 @@ void DashboardPage::buildListsRow(QWidget* container)
         view->setColumns(cols);
         view->setCompactMode(true);
         view->setFixedHeight(220);
+        view->tableView()->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
         vl->addWidget(view);
         return card;
     };
@@ -99,10 +102,10 @@ void DashboardPage::buildListsRow(QWidget* container)
     m_recentInvoices  = nullptr;
     m_overdueInvoices = nullptr;
 
-    layout->addWidget(makeCard("Recent Invoices",  m_recentInvoices,
-                               {"#", "Customer", "Date", "Amount", "Status"}), 1);
-    layout->addWidget(makeCard("Overdue Invoices", m_overdueInvoices,
-                               {"#", "Customer", "Due Date", "Amount", "Days Over"}), 1);
+    layout->addWidget(buildCard("Recent Invoices",  m_recentInvoices,
+                                {"#", "Customer", "Date", "Amount", "Status"}), 1);
+    layout->addWidget(buildCard("Overdue Invoices", m_overdueInvoices,
+                                {"#", "Customer", "Due Date", "Amount", "Days Over"}), 1);
 }
 
 QFrame* DashboardPage::makeChartCard(const QString& title)

@@ -1,6 +1,7 @@
 #include "pages/invoices/InvoicesPage.h"
 #include "components/inputs/FilterBar.h"
 #include "components/tables/DataTableView.h"
+#include "components/tables/PaginationFooter.h"
 #include <QAction>
 #include <QTabBar>
 #include <QVBoxLayout>

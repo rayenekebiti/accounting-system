@@ -26,5 +26,5 @@ private:
     QStackedWidget*   m_stack;
     PageHeader*       m_header;
     QMap<PageId, Page*> m_pages;
-    PageId m_currentId = PageId::Dashboard;
+    PageId m_currentId = static_cast<PageId>(-1);
 };

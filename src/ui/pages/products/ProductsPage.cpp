@@ -1,6 +1,7 @@
 #include "pages/products/ProductsPage.h"
 #include "components/inputs/FilterBar.h"
 #include "components/tables/DataTableView.h"
+#include "components/tables/PaginationFooter.h"
 #include <QAction>
 
 ProductsPage::ProductsPage(QWidget* parent) : ListPage(parent)

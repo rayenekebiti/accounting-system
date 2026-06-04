@@ -2,7 +2,8 @@
 #include <QWidget>
 #include "common/UiTypes.h"
 
-class QListWidget;
+class QToolButton;
+class QVBoxLayout;
 class QPushButton;
 
 class NavigationPanel : public QWidget {
@@ -18,22 +19,23 @@ signals:
     void navigationRequested(PageId id);
 
 private slots:
-    void onItemClicked(int row);
     void onCollapseToggled();
 
 private:
     struct NavEntry {
-        PageId  id;
-        QString icon;
-        QString label;
+        PageId      id;
+        QString     icon;
+        QString     label;
+        QToolButton* btn = nullptr;
     };
 
     void buildEntries();
     void applyCollapsedState();
+    QToolButton* makeNavButton(NavEntry& entry);
 
-    QListWidget* m_list;
-    QPushButton* m_collapseBtn;
-    bool         m_collapsed = false;
+    QVBoxLayout*    m_navLayout;
+    QPushButton*    m_collapseBtn;
+    bool            m_collapsed = false;
 
     QList<NavEntry> m_entries;
 };
