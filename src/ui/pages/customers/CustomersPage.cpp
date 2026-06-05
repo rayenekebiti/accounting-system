@@ -11,6 +11,9 @@ CustomersPage::CustomersPage(QWidget* parent) : ListPage(parent)
     m_table->setColumns({"Name", "Email", "Phone", "Balance", "Status"});
     m_table->setEmptyMessage("No customers yet",
                              "Add your first customer to get started.");
+    m_table->setMoneyColumns({3});
+    m_table->setStatusColumn(4);
+    m_table->enableRowActions();
 
     m_pagination->setTotalRecords(0);
 

@@ -2,6 +2,22 @@
 #define TRANSACTION_H
 #include "../constants.h"
 
+struct TransactionData
+{
+    unsigned short int id;
+    const char*        description;
+    double             amount;
+    const char*        date;
+    unsigned short int categoryId;
+    bool               isDeleted;
+};
+
+struct RecurringTransactionData : TransactionData
+{
+    int         frequencyDays;
+    const char* endDate;
+};
+
 class Transaction
 {
 protected:

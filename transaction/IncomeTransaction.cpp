@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <iostream>
 
-IncomeTransaction::IncomeTransaction(const IncomeTransaction_info& info)
+IncomeTransaction::IncomeTransaction(const TransactionData& info)
 {
     if (info.amount < 0)
         throw std::out_of_range("amount can't be negative");

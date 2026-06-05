@@ -13,6 +13,9 @@ InvoicesPage::InvoicesPage(QWidget* parent) : ListPage(parent)
     m_table->setColumns({"Number", "Customer", "Date", "Due", "Total", "Status"});
     m_table->setEmptyMessage("No invoices yet",
                              "Create your first invoice using the New button.");
+    m_table->setMoneyColumns({4});
+    m_table->setStatusColumn(5);
+    m_table->enableRowActions();
 
     m_pagination->setTotalRecords(0);
 

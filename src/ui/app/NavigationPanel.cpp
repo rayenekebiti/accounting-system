@@ -2,115 +2,188 @@
 #include <QToolButton>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QFrame>
 #include <QStyle>
+#include <QPainter>
+#include <QFontMetrics>
 
+// ── Badge — right-anchored count pill (Dynamics-style) ──────────────────────
+class NavBadge : public QWidget {
+public:
+    static constexpr int kW = 20;
+    static constexpr int kH = 16;
+
+    explicit NavBadge(QWidget* parent) : QWidget(parent)
+    {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setAttribute(Qt::WA_TranslucentBackground);
+        setObjectName("__navBadge__");
+        setFixedSize(kW, kH);
+    }
+    void setCount(int n) { m_count = n; update(); }
+
+protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        if (m_count <= 0) return;
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+
+        const QString txt = m_count > 99 ? "99+" : QString::number(m_count);
+        QFont f("Segoe UI", 8, QFont::Bold);
+        p.setFont(f);
+
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor("#C83434"));
+        p.drawRoundedRect(QRect(0, 0, width(), height()), kH / 2, kH / 2);
+        p.setPen(Qt::white);
+        p.drawText(QRect(0, 0, width(), height()), Qt::AlignCenter, txt);
+    }
+private:
+    int m_count = 0;
+};
+
+// Geometry constants used by both makeNavButton/setBadge and applyCollapsedState
+static constexpr int kNavPanelExpanded = 210;
+static constexpr int kNavPanelCollapsed = 48;
+static constexpr int kNavBtnH = 36;
+
+static QPoint badgePosFor(bool collapsed)
+{
+    if (collapsed) {
+        // Top-right corner of the icon-only button
+        return QPoint(kNavPanelCollapsed - NavBadge::kW - 2, 2);
+    }
+    // Right side, vertically centered on the row
+    return QPoint(kNavPanelExpanded - NavBadge::kW - 12,
+                  (kNavBtnH - NavBadge::kH) / 2);
+}
+
+// ── Nav button stylesheet ─────────────────────────────────────────────────────
 static const QString NAV_BTN_STYLE = R"(
 QToolButton {
     background: transparent;
     border: none;
-    border-left: 3px solid transparent;
-    color: #B0BEC5;
+    border-left: 2px solid transparent;
+    color: #6B7485;
     text-align: left;
-    padding: 0px 16px;
+    padding: 0px 14px;
     font-size: 13px;
 }
 QToolButton:hover {
-    background: rgba(255,255,255,0.07);
-    color: #ECEFF1;
+    background: rgba(196,203,216,0.06);
+    color: #C4CBD8;
 }
 QToolButton[active="true"] {
-    background: rgba(255,255,255,0.10);
-    border-left-color: #42A5F5;
-    color: #FFFFFF;
+    background: rgba(26,111,224,0.10);
+    border-left-color: #1A6FE0;
+    color: #C4CBD8;
     font-weight: 600;
 }
 )";
 
+// ── NavigationPanel ───────────────────────────────────────────────────────────
 NavigationPanel::NavigationPanel(QWidget* parent) : QWidget(parent)
 {
     setObjectName("navPanel");
-    setFixedWidth(228);
+    setFixedWidth(210);
 
     buildEntries();
 
-    auto* outerLayout = new QVBoxLayout(this);
-    outerLayout->setContentsMargins(0, 0, 0, 0);
-    outerLayout->setSpacing(0);
+    auto* outer = new QVBoxLayout(this);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
 
-    // Logo / app name
-    auto* logo = new QLabel("  ◈  AccountingPro", this);
-    logo->setFixedHeight(60);
-    logo->setStyleSheet("color: white; font-size: 14px; font-weight: 700; "
-                        "padding-left: 16px; background: transparent; letter-spacing: 0.5px;");
-    outerLayout->addWidget(logo);
+    // ── Brand header ─────────────────────────────────────────────────────────
+    auto* logoBox    = new QWidget(this);
+    logoBox->setFixedHeight(52);
+    auto* logoLayout = new QHBoxLayout(logoBox);
+    logoLayout->setContentsMargins(14, 0, 12, 0);
+    logoLayout->setSpacing(10);
+    logoLayout->setAlignment(Qt::AlignVCenter);
 
-    // Thin separator
+    auto* monogram = new QLabel("AP", logoBox);
+    monogram->setFixedSize(26, 26);
+    monogram->setAlignment(Qt::AlignCenter);
+    monogram->setStyleSheet(
+        "background: #1A6FE0; color: white; border-radius: 4px;"
+        " font-size: 11px; font-weight: 700; letter-spacing: 0.5px;");
+
+    auto* appName = new QLabel("AccountingPro", logoBox);
+    appName->setStyleSheet(
+        "color: #C4CBD8; font-size: 13px; font-weight: 600; background: transparent;");
+
+    logoLayout->addWidget(monogram);
+    logoLayout->addWidget(appName);
+    logoLayout->addStretch();
+    outer->addWidget(logoBox);
+
     auto* topSep = new QFrame(this);
     topSep->setFrameShape(QFrame::HLine);
     topSep->setFixedHeight(1);
-    topSep->setStyleSheet("background: rgba(255,255,255,0.08); border: none;");
-    outerLayout->addWidget(topSep);
+    topSep->setStyleSheet("background: rgba(255,255,255,0.06); border: none;");
+    outer->addWidget(topSep);
 
-    outerLayout->addSpacing(8);
+    outer->addSpacing(6);
 
-    // Nav buttons area (scrollable internally via layout)
+    // ── Nav items ─────────────────────────────────────────────────────────────
     m_navLayout = new QVBoxLayout;
     m_navLayout->setContentsMargins(0, 0, 0, 0);
-    m_navLayout->setSpacing(2);
+    m_navLayout->setSpacing(0);
 
-    // Group label: Operations
-    auto* opsLabel = new QLabel("  MAIN MENU", this);
-    opsLabel->setFixedHeight(28);
-    opsLabel->setStyleSheet("color: rgba(176,190,197,0.5); font-size: 10px; "
-                            "font-weight: 700; letter-spacing: 1px; padding-left: 20px; "
-                            "background: transparent;");
-    m_navLayout->addWidget(opsLabel);
+    auto addSection = [&](const QString& label) {
+        auto* lbl = new QLabel(label, this);
+        lbl->setFixedHeight(22);
+        lbl->setStyleSheet(
+            "color: rgba(107,116,133,0.55); font-size: 9px; font-weight: 700;"
+            " letter-spacing: 1.4px; padding-left: 18px; background: transparent;");
+        m_navLayout->addWidget(lbl);
+    };
 
-    for (int i = 0; i < m_entries.size(); ++i) {
-        if (i == 7) {
-            // Separator before Settings
-            m_navLayout->addSpacing(8);
-            auto* sep = new QFrame(this);
-            sep->setFrameShape(QFrame::HLine);
-            sep->setFixedHeight(1);
-            sep->setStyleSheet("background: rgba(255,255,255,0.08); border: none;");
-            m_navLayout->addWidget(sep);
-            m_navLayout->addSpacing(8);
+    auto addSep = [&] {
+        m_navLayout->addSpacing(4);
+        auto* line = new QFrame(this);
+        line->setFrameShape(QFrame::HLine);
+        line->setFixedHeight(1);
+        line->setStyleSheet("background: rgba(255,255,255,0.05); border: none;");
+        m_navLayout->addWidget(line);
+        m_navLayout->addSpacing(4);
+    };
 
-            auto* sysLabel = new QLabel("  SYSTEM", this);
-            sysLabel->setFixedHeight(28);
-            sysLabel->setStyleSheet("color: rgba(176,190,197,0.5); font-size: 10px; "
-                                    "font-weight: 700; letter-spacing: 1px; padding-left: 20px; "
-                                    "background: transparent;");
-            m_navLayout->addWidget(sysLabel);
-        }
+    addSection("OPERATIONS");
+    for (int i = 0; i <= 5; ++i)
         m_navLayout->addWidget(makeNavButton(m_entries[i]));
-    }
+
+    addSep();
+    addSection("ANALYTICS");
+    m_navLayout->addWidget(makeNavButton(m_entries[6]));
+
+    addSep();
+    addSection("SYSTEM");
+    m_navLayout->addWidget(makeNavButton(m_entries[7]));
 
     m_navLayout->addStretch();
+    outer->addLayout(m_navLayout, 1);
 
-    outerLayout->addLayout(m_navLayout, 1);
-
-    // Bottom separator + collapse
+    // ── Bottom collapse toggle ────────────────────────────────────────────────
     auto* botSep = new QFrame(this);
     botSep->setFrameShape(QFrame::HLine);
     botSep->setFixedHeight(1);
-    botSep->setStyleSheet("background: rgba(255,255,255,0.08); border: none;");
-    outerLayout->addWidget(botSep);
+    botSep->setStyleSheet("background: rgba(255,255,255,0.06); border: none;");
+    outer->addWidget(botSep);
 
-    m_collapseBtn = new QPushButton("◀   Collapse", this);
-    m_collapseBtn->setFixedHeight(44);
+    m_collapseBtn = new QPushButton("◀  Collapse", this);
+    m_collapseBtn->setFixedHeight(36);
     m_collapseBtn->setStyleSheet(
-        "QPushButton { color: rgba(176,190,197,0.7); background: transparent; "
-        "border: none; text-align: left; padding-left: 20px; font-size: 12px; }"
-        "QPushButton:hover { color: #ECEFF1; background: rgba(255,255,255,0.06); }");
-    outerLayout->addWidget(m_collapseBtn);
+        "QPushButton { color: rgba(107,116,133,0.65); background: transparent;"
+        " border: none; text-align: left; padding-left: 18px; font-size: 11px; min-height: 0; }"
+        "QPushButton:hover { color: #C4CBD8; background: rgba(196,203,216,0.05); }");
+    outer->addWidget(m_collapseBtn);
 
     connect(m_collapseBtn, &QPushButton::clicked, this, &NavigationPanel::onCollapseToggled);
 
-    // Activate first entry
     if (!m_entries.isEmpty())
         setActivePage(m_entries[0].id);
 }
@@ -118,23 +191,25 @@ NavigationPanel::NavigationPanel(QWidget* parent) : QWidget(parent)
 QToolButton* NavigationPanel::makeNavButton(NavEntry& entry)
 {
     auto* btn = new QToolButton(this);
-    btn->setFixedHeight(44);
+    btn->setFixedHeight(36);
     btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     btn->setStyleSheet(NAV_BTN_STYLE);
 
-    // Use a two-label layout inside a container widget via a trick:
-    // Set the button text as "EMOJI  Label" with a rich font approach
-    // We'll use a custom widget approach using a child layout
-    btn->setText(entry.icon + "   " + entry.label);
-
-    // Make icon part bigger via font override on the text
     QFont f = btn->font();
-    f.setPointSize(12);
+    f.setPointSize(11);
     btn->setFont(f);
 
     btn->setProperty("active", false);
     entry.btn = btn;
+    updateButtonText(entry);
+
+    if (entry.badge > 0) {
+        auto* badge = new NavBadge(btn);
+        badge->setCount(entry.badge);
+        badge->move(badgePosFor(m_collapsed));
+        badge->show();
+    }
 
     const PageId id = entry.id;
     connect(btn, &QToolButton::clicked, this, [this, id] {
@@ -144,18 +219,46 @@ QToolButton* NavigationPanel::makeNavButton(NavEntry& entry)
     return btn;
 }
 
+void NavigationPanel::updateButtonText(NavEntry& entry)
+{
+    if (!entry.btn) return;
+    if (m_collapsed)
+        entry.btn->setText(entry.icon);
+    else
+        entry.btn->setText(entry.icon + "  " + entry.label);
+}
+
 void NavigationPanel::buildEntries()
 {
     m_entries = {
-        { PageId::Dashboard, "🏠", "Dashboard"  },
-        { PageId::Customers, "👥", "Customers"  },
-        { PageId::Suppliers, "🏢", "Suppliers"  },
-        { PageId::Products,  "🛍", "Products"   },
-        { PageId::Invoices,  "🧾", "Invoices"   },
-        { PageId::Payments,  "💳", "Payments"   },
-        { PageId::Reports,   "📈", "Reports"    },
-        { PageId::Settings,  "⚙", "Settings"   },
+        { PageId::Dashboard, "⊞",  "Dashboard"       },
+        { PageId::Customers, "◉",  "Customers"       },
+        { PageId::Suppliers, "◈",  "Suppliers"       },
+        { PageId::Products,  "◇",  "Products"        },
+        { PageId::Invoices,  "≡",  "Invoices",    7  },
+        { PageId::Payments,  "≋",  "Payments"        },
+        { PageId::Reports,   "↗",  "Reports"         },
+        { PageId::Settings,  "⊛",  "Settings"        },
     };
+}
+
+void NavigationPanel::setBadge(PageId id, int count)
+{
+    for (auto& entry : m_entries) {
+        if (entry.id != id) continue;
+        entry.badge = count;
+        if (entry.btn) {
+            for (auto* child : entry.btn->findChildren<QWidget*>("__navBadge__"))
+                child->deleteLater();
+            if (count > 0) {
+                auto* badge = new NavBadge(entry.btn);
+                badge->setCount(count);
+                badge->move(badgePosFor(m_collapsed));
+                badge->show();
+            }
+        }
+        break;
+    }
 }
 
 void NavigationPanel::setActivePage(PageId id)
@@ -183,21 +286,25 @@ void NavigationPanel::onCollapseToggled()
 
 void NavigationPanel::applyCollapsedState()
 {
-    if (m_collapsed) {
-        setFixedWidth(64);
-        m_collapseBtn->setText("▶");
-        for (auto& entry : m_entries) {
-            if (entry.btn) {
-                entry.btn->setText(entry.icon);
-                entry.btn->setToolTip(entry.label);
-            }
+    setFixedWidth(m_collapsed ? kNavPanelCollapsed : kNavPanelExpanded);
+    m_collapseBtn->setText(m_collapsed ? "▶" : "◀  Collapse");
+
+    const QPoint bp = badgePosFor(m_collapsed);
+    for (auto& entry : m_entries) {
+        if (!entry.btn) continue;
+
+        if (m_collapsed) {
+            entry.btn->setText(entry.icon);
+            entry.btn->setToolTip(
+                entry.badge > 0
+                    ? QString("%1 (%2)").arg(entry.label).arg(entry.badge)
+                    : entry.label);
+        } else {
+            updateButtonText(entry);
+            entry.btn->setToolTip({});
         }
-    } else {
-        setFixedWidth(228);
-        m_collapseBtn->setText("◀   Collapse");
-        for (auto& entry : m_entries) {
-            if (entry.btn)
-                entry.btn->setText(entry.icon + "   " + entry.label);
-        }
+
+        for (auto* badge : entry.btn->findChildren<QWidget*>("__navBadge__"))
+            badge->move(bp);
     }
 }

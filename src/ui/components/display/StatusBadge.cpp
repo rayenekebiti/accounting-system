@@ -14,16 +14,16 @@ StatusBadge::StatusBadge(Status status, QWidget* parent) : StatusBadge(parent)
 void StatusBadge::setStatus(Status status)
 {
     switch (status) {
-    case Status::Draft:     applyStyle("#E3F2FD", "#1565C0"); setText("Draft");     break;
-    case Status::Posted:    applyStyle("#E8F5E9", "#2E7D32"); setText("Posted");    break;
-    case Status::Paid:      applyStyle("#E8F5E9", "#1B5E20"); setText("Paid");      break;
-    case Status::Overdue:   applyStyle("#FFF3E0", "#E65100"); setText("Overdue");   break;
-    case Status::Void:      applyStyle("#FFEBEE", "#B71C1C"); setText("Void");      break;
-    case Status::Active:    applyStyle("#E8F5E9", "#2E7D32"); setText("Active");    break;
-    case Status::Inactive:  applyStyle("#F5F5F5", "#616161"); setText("Inactive");  break;
-    case Status::InStock:   applyStyle("#E8F5E9", "#2E7D32"); setText("In Stock");  break;
-    case Status::LowStock:  applyStyle("#FFF3E0", "#E65100"); setText("Low");       break;
-    case Status::OutOfStock:applyStyle("#FFEBEE", "#B71C1C"); setText("Out");       break;
+    case Status::Draft:     applyStyle("rgba(65,145,225,0.15)",  "#64B5F6"); setText("Draft");     break;
+    case Status::Posted:    applyStyle("rgba(75,164,106,0.15)",  "#4BA46A"); setText("Posted");    break;
+    case Status::Paid:      applyStyle("rgba(75,164,106,0.18)",  "#56C278"); setText("Paid");      break;
+    case Status::Overdue:   applyStyle("rgba(212,96,58,0.18)",   "#D4603A"); setText("Overdue");   break;
+    case Status::Void:      applyStyle("rgba(224,85,85,0.15)",   "#E05555"); setText("Void");      break;
+    case Status::Active:    applyStyle("rgba(75,164,106,0.15)",  "#4BA46A"); setText("Active");    break;
+    case Status::Inactive:  applyStyle("rgba(139,134,132,0.15)", "#8B8684"); setText("Inactive");  break;
+    case Status::InStock:   applyStyle("rgba(75,164,106,0.15)",  "#4BA46A"); setText("In Stock");  break;
+    case Status::LowStock:  applyStyle("rgba(212,96,58,0.18)",   "#D4603A"); setText("Low");       break;
+    case Status::OutOfStock:applyStyle("rgba(224,85,85,0.15)",   "#E05555"); setText("Out");       break;
     }
 }
 

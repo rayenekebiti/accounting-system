@@ -2,20 +2,10 @@
 #define INCOME_TRANSACTION_H
 #include "transaction.h"
 
-struct IncomeTransaction_info
-{
-    unsigned short int id;
-    const char* description;
-    double amount;
-    const char* date;
-    unsigned short int categoryId;
-    bool isDeleted;
-};
-
 class IncomeTransaction : public Transaction
 {
 public:
-    IncomeTransaction(const IncomeTransaction_info& info);
+    IncomeTransaction(const TransactionData& info);
 
     double getEffectiveAmount() const override;
     TransactionType getType() const override;

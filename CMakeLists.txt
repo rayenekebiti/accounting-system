@@ -28,6 +28,8 @@ set(UI_SOURCES
     src/ui/pages/settings/SettingsPage.cpp
     src/ui/components/tables/DataTableView.cpp
     src/ui/components/tables/PaginationFooter.cpp
+    src/ui/components/tables/RowActionsDelegate.cpp
+    src/ui/components/display/MiniBarChart.cpp
     src/ui/components/inputs/SearchBar.cpp
     src/ui/components/inputs/FilterBar.cpp
     src/ui/components/forms/FormRow.cpp
