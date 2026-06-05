@@ -2,20 +2,10 @@
 #define EXPENSE_TRANSACTION_H
 #include "transaction.h"
 
-struct ExpenseTransaction_info
-{
-    unsigned short int id;
-    const char* description;
-    double amount;
-    const char* date;
-    unsigned short int categoryId;
-    bool isDeleted;
-};
-
 class ExpenseTransaction : public Transaction
 {
 public:
-    ExpenseTransaction(const ExpenseTransaction_info& info);
+    ExpenseTransaction(const TransactionData& info);
 
     double getEffectiveAmount() const override;
     TransactionType getType() const override;

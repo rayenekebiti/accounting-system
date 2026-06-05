@@ -4,8 +4,8 @@
 #include <cstdio>
 #include <iostream>
 
-RecurringIncome::RecurringIncome(const RecurringIncome_info& info)
-    : IncomeTransaction({info.id, info.description, info.amount, info.date, info.categoryId, info.isDeleted})
+RecurringIncome::RecurringIncome(const RecurringTransactionData& info)
+    : IncomeTransaction(info)
 {
     frequencyDays = info.frequencyDays;
     std::strncpy(endDate, info.endDate, MAX_END_DATE_LENGTH - 1);

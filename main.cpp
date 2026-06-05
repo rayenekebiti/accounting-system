@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
     app.setApplicationVersion("1.0");
     app.setOrganizationName("AccountingPro");
 
-    ThemeManager::instance().apply(app, ThemeManager::Theme::Light);
+    ThemeManager::instance().apply(app, ThemeManager::Theme::Dark);
 
     MainWindow window;
     window.show();

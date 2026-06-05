@@ -4,7 +4,8 @@
 class KpiCard;
 class DataTableView;
 class QFrame;
-class QScrollArea;
+class QWidget;
+class QLabel;
 
 class DashboardPage : public Page {
     Q_OBJECT
@@ -16,17 +17,22 @@ public:
     void    onActivated()    override;
 
 private:
-    void buildKpiRow(QWidget* container);
-    void buildChartsRow(QWidget* container);
-    void buildListsRow(QWidget* container);
+    QWidget* buildKpiStrip();
+    QWidget* buildMainContent();
+    QFrame*  buildRecentInvoicesCard();
+    QWidget* buildRightPanel();
+    QFrame*  buildOverdueCard();
+    QFrame*  buildSummaryCard();
 
-    QFrame* makeChartCard(const QString& title);
+    KpiCard*       m_receivablesCard = nullptr;
+    KpiCard*       m_payablesCard    = nullptr;
+    KpiCard*       m_revenueCard     = nullptr;
+    KpiCard*       m_overdueCard     = nullptr;
+    DataTableView* m_recentInvoices  = nullptr;
+    DataTableView* m_overdueInvoices = nullptr;
 
-    KpiCard* m_receivablesCard;
-    KpiCard* m_payablesCard;
-    KpiCard* m_revenueCard;
-    KpiCard* m_overdueCard;
-
-    DataTableView* m_recentInvoices;
-    DataTableView* m_overdueInvoices;
+    QLabel* m_arValue  = nullptr;
+    QLabel* m_apValue  = nullptr;
+    QLabel* m_netValue = nullptr;
+    QLabel* m_ytdValue = nullptr;
 };

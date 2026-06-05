@@ -11,16 +11,20 @@
 GlobalToolBar::GlobalToolBar(QWidget* parent) : QToolBar("Global Toolbar", parent)
 {
     setMovable(false);
-    setIconSize(QSize(16, 16));
+    setFixedHeight(44);
+    setIconSize(QSize(14, 14));
 
-    // "+ New" dropdown
+    // "New" primary action — enterprise blue
     m_newBtn = new QToolButton(this);
-    m_newBtn->setText("＋ New ▾");
-    m_newBtn->setStyleSheet("QToolButton { font-weight: 600; padding: 6px 12px; "
-                            "background: #1565C0; color: white; border-radius: 4px; }");
+    m_newBtn->setText("+ New");
+    m_newBtn->setStyleSheet(
+        "QToolButton { font-weight: 600; padding: 5px 14px; background: #1A6FE0;"
+        " color: white; border-radius: 3px; border: none; font-size: 13px; }"
+        "QToolButton:hover { background: #155DC0; }"
+        "QToolButton::menu-indicator { image: none; }");
     m_newBtn->setPopupMode(QToolButton::InstantPopup);
 
-    auto* newMenu = new QMenu(m_newBtn);
+    auto* newMenu    = new QMenu(m_newBtn);
     auto* newInvoice  = newMenu->addAction("Invoice");
     auto* newPayment  = newMenu->addAction("Payment");
     newMenu->addSeparator();
@@ -39,9 +43,9 @@ GlobalToolBar::GlobalToolBar(QWidget* parent) : QToolBar("Global Toolbar", paren
 
     // Global search
     m_searchEdit = new QLineEdit(this);
-    m_searchEdit->setPlaceholderText("🔍  Search everything…");
-    m_searchEdit->setMinimumWidth(260);
-    m_searchEdit->setMaximumWidth(360);
+    m_searchEdit->setPlaceholderText("Search invoices, customers, payments…");
+    m_searchEdit->setMinimumWidth(280);
+    m_searchEdit->setMaximumWidth(380);
     addWidget(m_searchEdit);
 
     // Spacer
@@ -49,7 +53,7 @@ GlobalToolBar::GlobalToolBar(QWidget* parent) : QToolBar("Global Toolbar", paren
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     addWidget(spacer);
 
-    // Period selector
+    // Fiscal period
     auto* periodLabel = new QLabel("Period:", this);
     periodLabel->setObjectName("muted");
     addWidget(periodLabel);
@@ -57,11 +61,14 @@ GlobalToolBar::GlobalToolBar(QWidget* parent) : QToolBar("Global Toolbar", paren
     m_periodCombo = new QComboBox(this);
     m_periodCombo->addItems({"FY 2026", "FY 2025", "Q2 2026", "Q1 2026",
                              "This Month", "Last Month", "Custom…"});
-    m_periodCombo->setFixedWidth(120);
+    m_periodCombo->setFixedWidth(110);
     addWidget(m_periodCombo);
 
     addSeparator();
-    addAction("⚙");
+
+    auto* settingsBtn = new QToolButton(this);
+    settingsBtn->setText("⚙");
+    addWidget(settingsBtn);
 
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &GlobalToolBar::globalSearchChanged);

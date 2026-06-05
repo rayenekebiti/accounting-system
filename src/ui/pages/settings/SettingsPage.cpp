@@ -1,4 +1,5 @@
 #include "pages/settings/SettingsPage.h"
+#include "theme/ThemeManager.h"
 #include "components/forms/FormRow.h"
 #include "components/forms/SectionHeader.h"
 #include <QListWidget>
@@ -180,7 +181,13 @@ QWidget* SettingsPage::buildAppearancePanel()
     l->addSpacing(16);
 
     auto* themeCombo = new QComboBox(w);
-    themeCombo->addItems({"Light", "Dark", "System"});
+    themeCombo->addItems({"Dark", "Light"});
+    const bool isDark = ThemeManager::instance().currentTheme() == ThemeManager::Theme::Dark;
+    themeCombo->setCurrentIndex(isDark ? 0 : 1);
+    connect(themeCombo, &QComboBox::currentTextChanged, this, [](const QString& t) {
+        ThemeManager::instance().setTheme(
+            t == "Dark" ? ThemeManager::Theme::Dark : ThemeManager::Theme::Light);
+    });
     l->addWidget(new FormRow("Theme", themeCombo, w));
     l->addSpacing(8);
 

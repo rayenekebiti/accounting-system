@@ -1,5 +1,6 @@
 #pragma once
 #include <QWidget>
+#include <QMap>
 #include "common/UiTypes.h"
 
 class QToolButton;
@@ -13,6 +14,7 @@ public:
 
     void setActivePage(PageId id);
     void setCollapsed(bool collapsed);
+    void setBadge(PageId id, int count);
     bool isCollapsed() const { return m_collapsed; }
 
 signals:
@@ -23,19 +25,21 @@ private slots:
 
 private:
     struct NavEntry {
-        PageId      id;
-        QString     icon;
-        QString     label;
-        QToolButton* btn = nullptr;
+        PageId       id;
+        QString      icon;
+        QString      label;
+        int          badge = 0;
+        QToolButton* btn   = nullptr;
     };
 
     void buildEntries();
     void applyCollapsedState();
     QToolButton* makeNavButton(NavEntry& entry);
+    void         updateButtonText(NavEntry& entry);
+    void         paintBadgeOnButton(NavEntry& entry);
 
     QVBoxLayout*    m_navLayout;
     QPushButton*    m_collapseBtn;
     bool            m_collapsed = false;
-
     QList<NavEntry> m_entries;
 };

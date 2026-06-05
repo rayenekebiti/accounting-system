@@ -7,10 +7,10 @@
 PageHeader::PageHeader(QWidget* parent) : QWidget(parent)
 {
     setObjectName("pageHeaderWidget");
-    setFixedHeight(56);
+    setFixedHeight(46);
 
     auto* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(24, 0, 16, 0);
+    layout->setContentsMargins(20, 0, 16, 0);
     layout->setSpacing(16);
 
     m_titleLabel = new QLabel(this);
@@ -20,7 +20,7 @@ PageHeader::PageHeader(QWidget* parent) : QWidget(parent)
     layout->addStretch();
 
     m_actionsLayout = new QHBoxLayout;
-    m_actionsLayout->setSpacing(8);
+    m_actionsLayout->setSpacing(6);
     layout->addLayout(m_actionsLayout);
 }
 
@@ -35,11 +35,12 @@ void PageHeader::setActions(const QList<QAction*>& actions)
     for (QAction* action : actions) {
         auto* btn = new QToolButton(this);
         btn->setDefaultAction(action);
-        btn->setObjectName("secondary");
         btn->setStyleSheet(
-            "QToolButton { background: transparent; border: 1px solid #1565C0; "
-            "color: #1565C0; border-radius: 4px; padding: 4px 12px; font-weight: 500; }"
-            "QToolButton:hover { background: rgba(21,101,192,0.08); }");
+            "QToolButton { background: transparent; border: 1px solid #272D3A;"
+            " color: #C4CBD8; border-radius: 3px; padding: 4px 12px;"
+            " font-weight: 500; font-size: 13px; }"
+            "QToolButton:hover { background: rgba(26,111,224,0.10); border-color: #1A6FE0;"
+            " color: #1A6FE0; }");
         m_actionsLayout->addWidget(btn);
         m_actionButtons.append(btn);
     }

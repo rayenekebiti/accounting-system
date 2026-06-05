@@ -4,8 +4,8 @@
 #include <cstdio>
 #include <iostream>
 
-RecurringExpense::RecurringExpense(const RecurringExpense_info& info)
-    : ExpenseTransaction({info.id, info.description, info.amount, info.date, info.categoryId, info.isDeleted})
+RecurringExpense::RecurringExpense(const RecurringTransactionData& info)
+    : ExpenseTransaction(info)
 {
     frequencyDays = info.frequencyDays;
     std::strncpy(endDate, info.endDate, MAX_END_DATE_LENGTH - 1);
