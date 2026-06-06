@@ -21,7 +21,7 @@ const unsigned short int MAX_OVERDRAFT_LIMIT     = -20000;
 
 enum TransactionType
 {
-    INCOME, EXPENSE,
+    INCOME, EXPENSE, UNKNOWN,
     RECURRING_INCOME,
     RECURRING_EXPENSE
 };
