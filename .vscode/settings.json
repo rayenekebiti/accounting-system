@@ -1,0 +1,9 @@
+{
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "clangd.path": "C:/msys64/ucrt64/bin/clangd.exe",
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/build",
+        "--header-insertion=never",
+        "--clang-tidy"
+    ]
+}

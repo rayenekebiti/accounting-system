@@ -1,5 +1,5 @@
-#include <iostream>
 #include "constants.h"
+#include <cstring>
 #include "Account.h"
 
 Account::Account(unsigned short int id, const std::string& nname, double iBalance){

@@ -1,13 +1,33 @@
 cmake_minimum_required(VERSION 3.16)
 project(AccountingSystem VERSION 1.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
+
+set(CORE_SOURCES
+    core/Category.cpp
+    core/budget.cpp
+    core/AccountingSystem.cpp
+    core/Customer.cpp
+    core/Supplier.cpp
+    core/Product.cpp
+    core/Invoice.cpp
+    core/Payment.cpp
+)
+
+set(MODEL_SOURCES
+    src/ui/models/CustomerTableModel.cpp
+    src/ui/models/SupplierTableModel.cpp
+    src/ui/models/ProductTableModel.cpp
+    src/ui/models/InvoiceTableModel.cpp
+    src/ui/models/PaymentTableModel.cpp
+)
 
 set(UI_SOURCES
     src/ui/theme/ThemeManager.cpp
@@ -42,9 +62,9 @@ set(UI_SOURCES
     src/ui/components/display/MoneyLabel.cpp
 )
 
-add_executable(AccountingSystem main.cpp ${UI_SOURCES})
+add_executable(AccountingSystem main.cpp ${CORE_SOURCES} ${MODEL_SOURCES} ${UI_SOURCES})
 
-target_include_directories(AccountingSystem PRIVATE src/ui)
+target_include_directories(AccountingSystem PRIVATE src/ui core)
 
 target_link_libraries(AccountingSystem PRIVATE Qt6::Widgets)
 
