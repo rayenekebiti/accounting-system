@@ -17,10 +17,11 @@ const unsigned short int CATEGORY_RECORD_SIZE    = 48;
 const unsigned short int BUDGET_RECORD_SIZE      = 32;
 
 const unsigned short int MAX_WITHDRAWAL_LIMIT    = 50000;
+const unsigned short int MAX_OVERDRAFT_LIMIT     = -20000;
 
 enum TransactionType
 {
-    INCOME, EXPENSE,
+    INCOME, EXPENSE, UNKNOWN,
     RECURRING_INCOME,
     RECURRING_EXPENSE
 };
