@@ -20,9 +20,8 @@ class Category{
     std::string getName();
     TransactionType getType();
     void const display();
-    
-    //serialize() and deserialize()
-
+    void serialize(std::ostream&);
+    void deserialize(std::istream&);
     
 };
 #endif

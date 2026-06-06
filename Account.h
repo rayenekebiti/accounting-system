@@ -14,14 +14,12 @@ class Account {
     Account(unsigned short int, const std::string&, double);
     virtual AccountType getAccountType() = 0;
     virtual bool canWithdraw(double) = 0;
-
-    // serialize and deserialize
-    
+    virtual void serialize(std::ostream&);
+    virtual void deserialize(std::istream&);
     virtual void deposit(double) = 0;
     virtual void withdraw(double) = 0;
     virtual unsigned short int getId();
     virtual double getBalance();
-
 
 };
 
