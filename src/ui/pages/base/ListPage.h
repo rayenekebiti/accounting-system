@@ -6,6 +6,8 @@ class DataTableView;
 class SearchBar;
 class FilterBar;
 class PaginationFooter;
+class PaginationProxy;
+class QAbstractProxyModel;
 class QVBoxLayout;
 class QHBoxLayout;
 
@@ -21,11 +23,21 @@ protected:
     PaginationFooter* m_pagination;
     QVBoxLayout*      m_mainLayout;
     QHBoxLayout*      m_filterStrip;
+    PaginationProxy*     m_paginationProxy = nullptr;
+    QAbstractProxyModel* m_filterProxy     = nullptr;
+
+    // Call this instead of m_table->setModel(proxy) to enable pagination.
+    void setupPagination(QAbstractProxyModel* filterProxy);
+    // Call after setTotalRecords when filter changes to reset back to page 1.
+    void resetToFirstPage();
 
     void setupListLayout();
 
     virtual void onSearch(const QString& text) { Q_UNUSED(text) }
     virtual void onFilterChanged()             {}
-    virtual void onPageChanged(int page)       { Q_UNUSED(page) }
     virtual void onRowDoubleClicked(int row)   { Q_UNUSED(row) }
+
+private slots:
+    void onPageChanged(int page);
+    void onPageSizeChanged(int size);
 };

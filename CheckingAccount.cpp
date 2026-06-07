@@ -1,14 +1,26 @@
-
-#include <iostream>
 #include "CheckingAccount.h"
+#include <cstring>
 
-    ChekingAccount::ChekingAccount(unsigned short id, const std::string& nname, double iBalance, const std::string& bankNname)
-    :BankAccount(id,nname,iBalance,bankName){};
+CheckingAccount::CheckingAccount(unsigned short id,
+                                 const std::string& accountName,
+                                 double initialBalance,
+                                 const std::string& bankName)
+    : BankAccount(id, accountName, initialBalance, bankName) {}
 
-bool ChekingAccount::canWithdraw(double money){
-    if (money >= MAX_OVERDRAFT_LIMIT){ return true;}
- else return false;
+bool CheckingAccount::canWithdraw(double amount) {
+    return (balance - amount) >= overdraftLimit;
 }
-AccountType ChekingAccount::getAccountType(){
-    return CHECKING;
+
+AccountType CheckingAccount::getAccountType() const { return CHECKING; }
+
+void CheckingAccount::serialize(char* buf) const
+{
+    BankAccount::serialize(buf);
+    std::memcpy(buf + 111, &overdraftLimit, sizeof(overdraftLimit));
+}
+
+void CheckingAccount::deserialize(const char* buf)
+{
+    BankAccount::deserialize(buf);
+    std::memcpy(&overdraftLimit, buf + 111, sizeof(overdraftLimit));
 }

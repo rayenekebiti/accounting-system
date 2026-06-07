@@ -2,12 +2,17 @@
 #define RECURRING_INCOME_H
 #include "IncomeTransaction.h"
 
+class TransactionRepository;
+
 class RecurringIncome : public IncomeTransaction
 {
 private:
     int frequencyDays;
     char endDate[MAX_END_DATE_LENGTH];
 
+protected:
+    RecurringIncome() = default;
+    friend class TransactionRepository;
 public:
     RecurringIncome(const RecurringTransactionData& info);
 

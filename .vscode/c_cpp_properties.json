@@ -5,6 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/src/ui",
+                "${workspaceFolder}/transaction",
                 "C:/msys64/ucrt64/include/qt6",
                 "C:/msys64/ucrt64/include/qt6/QtWidgets",
                 "C:/msys64/ucrt64/include/qt6/QtCore",

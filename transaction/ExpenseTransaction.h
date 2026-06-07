@@ -2,8 +2,13 @@
 #define EXPENSE_TRANSACTION_H
 #include "transaction.h"
 
+class TransactionRepository;
+
 class ExpenseTransaction : public Transaction
 {
+protected:
+    ExpenseTransaction() = default;
+    friend class TransactionRepository;
 public:
     ExpenseTransaction(const TransactionData& info);
 

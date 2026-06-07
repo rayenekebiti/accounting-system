@@ -2,8 +2,13 @@
 #define INCOME_TRANSACTION_H
 #include "transaction.h"
 
+class TransactionRepository;
+
 class IncomeTransaction : public Transaction
 {
+protected:
+    IncomeTransaction() = default;
+    friend class TransactionRepository;
 public:
     IncomeTransaction(const TransactionData& info);
 

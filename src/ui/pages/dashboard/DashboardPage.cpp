@@ -1,6 +1,10 @@
 #include "pages/dashboard/DashboardPage.h"
 #include "components/display/KpiCard.h"
 #include "components/tables/DataTableView.h"
+#include "storage/StorageService.h"
+#include "Invoice.h"
+#include "Customer.h"
+#include "Supplier.h"
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -11,8 +15,9 @@
 #include <QHeaderView>
 #include <QTableView>
 #include <QStandardItemModel>
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
+#include <QDate>
+#include <algorithm>
+#include <unordered_map>
 
 static QFrame* makeSeparator(QWidget* parent = nullptr)
 {
@@ -47,7 +52,22 @@ static QWidget* makePanelHeader(const QString& title, QWidget* parent = nullptr,
     return bar;
 }
 
-// ── DashboardPage ─────────────────────────────────────────────────────────────
+static QString fmtMoney(double v)
+{
+    return QString("$%1").arg(v, 0, 'f', 0);
+}
+
+static QString invoiceStatusName(InvoiceStatus s)
+{
+    switch (s) {
+        case INVOICE_DRAFT:   return "Draft";
+        case INVOICE_POSTED:  return "Posted";
+        case INVOICE_PAID:    return "Paid";
+        case INVOICE_OVERDUE: return "Overdue";
+        case INVOICE_VOID:    return "Void";
+        default:              return "Unknown";
+    }
+}
 
 DashboardPage::DashboardPage(QWidget* parent) : Page(parent)
 {
@@ -85,7 +105,7 @@ QWidget* DashboardPage::buildKpiStrip()
     m_payablesCard = new KpiCard("Total Payables", strip);
     m_payablesCard->setAccentColor(QColor("#BA7B2A"));
 
-    m_revenueCard = new KpiCard("Revenue (Period)", strip);
+    m_revenueCard = new KpiCard("Revenue (YTD)", strip);
     m_revenueCard->setAccentColor(QColor("#1A6FE0"));
 
     m_overdueCard = new KpiCard("Overdue Invoices", strip);
@@ -118,7 +138,7 @@ QFrame* DashboardPage::buildRecentInvoicesCard()
     vl->setContentsMargins(0, 0, 0, 0);
     vl->setSpacing(0);
 
-    vl->addWidget(makePanelHeader("Recent Invoices", card, "6 records"));
+    vl->addWidget(makePanelHeader("Recent Invoices", card));
     vl->addWidget(makeSeparator(card));
 
     m_recentInvoices = new DataTableView(card);
@@ -152,7 +172,7 @@ QFrame* DashboardPage::buildOverdueCard()
     vl->setContentsMargins(0, 0, 0, 0);
     vl->setSpacing(0);
 
-    vl->addWidget(makePanelHeader("Overdue Invoices", card, "4 records"));
+    vl->addWidget(makePanelHeader("Overdue Invoices", card));
     vl->addWidget(makeSeparator(card));
 
     m_overdueInvoices = new DataTableView(card);
@@ -174,7 +194,9 @@ QFrame* DashboardPage::buildSummaryCard()
     vl->setContentsMargins(0, 0, 0, 0);
     vl->setSpacing(0);
 
-    vl->addWidget(makePanelHeader("Financial Summary", card, "FY 2026"));
+    const int year = QDate::currentDate().year();
+    vl->addWidget(makePanelHeader("Financial Summary", card,
+                                  QString("FY %1").arg(year)));
     vl->addWidget(makeSeparator(card));
 
     auto* body = new QWidget(card);
@@ -206,62 +228,126 @@ QFrame* DashboardPage::buildSummaryCard()
     return card;
 }
 
-// ── Data population ───────────────────────────────────────────────────────────
-
 void DashboardPage::onActivated()
 {
-    // KPI cards
-    m_receivablesCard->setValue("$24,850");
-    m_receivablesCard->setDelta(12.5, true);
+    if (!StorageService::instance().isInitialized()) {
+        m_receivablesCard->setValue("—");
+        m_payablesCard->setValue("—");
+        m_revenueCard->setValue("—");
+        m_overdueCard->setValue("—");
+        return;
+    }
 
-    m_payablesCard->setValue("$8,320");
-    m_payablesCard->setDelta(-3.2, false);
+    const auto invoices  = StorageService::instance().invoices().loadAll();
+    const auto customers = StorageService::instance().customers().loadAll();
+    const auto suppliers = StorageService::instance().suppliers().loadAll();
 
-    m_revenueCard->setValue("$61,400");
-    m_revenueCard->setDelta(8.1, true);
+    // Customer name lookup
+    std::unordered_map<uint16_t, QString> custNames;
+    for (const auto& c : customers)
+        custNames[c.getId()] = QString::fromUtf8(c.getName());
 
-    m_overdueCard->setValue("7");
-    m_overdueCard->setSubtitle("$4,230 outstanding");
+    // KPIs
+    double totalAR = 0.0;
+    for (const auto& c : customers)
+        if (!c.getIsDeleted()) totalAR += c.getBalance();
 
-    // Recent invoices — 6 columns
+    double totalAP = 0.0;
+    for (const auto& s : suppliers)
+        if (!s.getIsDeleted()) totalAP += s.getBalance();
+
+    const int currentYear = QDate::currentDate().year();
+    const QDate today     = QDate::currentDate();
+    double revenueYTD     = 0.0;
+    int    overdueCount   = 0;
+    double overdueTotal   = 0.0;
+
+    for (const auto& inv : invoices) {
+        if (inv.getIsDeleted()) continue;
+        if (inv.getStatus() == INVOICE_PAID) {
+            const QDate d = QDate::fromString(
+                QString::fromUtf8(inv.getIssueDate()), "d MMM yyyy");
+            if (d.year() == currentYear) revenueYTD += inv.getTotal();
+        }
+        if (inv.getStatus() == INVOICE_OVERDUE) {
+            ++overdueCount;
+            overdueTotal += inv.getTotal();
+        }
+    }
+
+    m_receivablesCard->setValue(fmtMoney(totalAR));
+    m_payablesCard->setValue(fmtMoney(totalAP));
+    m_revenueCard->setValue(fmtMoney(revenueYTD));
+    m_overdueCard->setValue(QString::number(overdueCount));
+    if (overdueTotal > 0)
+        m_overdueCard->setSubtitle(fmtMoney(overdueTotal) + " outstanding");
+
+    // Recent invoices — last 6 by id
+    std::vector<const Invoice*> sorted;
+    sorted.reserve(invoices.size());
+    for (const auto& inv : invoices)
+        if (!inv.getIsDeleted()) sorted.push_back(&inv);
+    std::sort(sorted.begin(), sorted.end(),
+              [](const Invoice* a, const Invoice* b){ return a->getId() > b->getId(); });
+
     auto* rim = new QStandardItemModel(0, 6, m_recentInvoices);
-    rim->setHorizontalHeaderLabels({"#", "CUSTOMER", "ISSUE DATE", "DUE DATE", "AMOUNT", "STATUS"});
-    auto addInv = [&](const QStringList& r) {
-        QList<QStandardItem*> items;
-        for (const QString& c : r) items << new QStandardItem(c);
-        rim->appendRow(items);
-    };
-    addInv({"INV-1024", "Acme Corp",    "01 Jun 2026", "30 Jun 2026", "$4,200.00", "Paid"   });
-    addInv({"INV-1023", "Beta LLC",     "28 May 2026", "27 Jun 2026", "$1,850.00", "Posted" });
-    addInv({"INV-1022", "Gamma Inc",    "12 May 2026", "11 Jun 2026", "$7,400.00", "Overdue"});
-    addInv({"INV-1021", "Delta & Co",   "20 May 2026", "19 Jun 2026", "$920.00",   "Paid"   });
-    addInv({"INV-1020", "Epsilon Ltd",  "15 May 2026", "14 Jun 2026", "$3,150.00", "Draft"  });
-    addInv({"INV-1019", "Zeta Corp",    "10 May 2026", "09 Jun 2026", "$2,800.00", "Posted" });
+    rim->setHorizontalHeaderLabels({"#","CUSTOMER","ISSUE DATE","DUE DATE","AMOUNT","STATUS"});
+    for (int i = 0; i < qMin(6, (int)sorted.size()); ++i) {
+        const Invoice* inv = sorted[i];
+        const QString  cName = custNames.count(inv->getCustomerId())
+                                   ? custNames.at(inv->getCustomerId())
+                                   : QString("#%1").arg(inv->getCustomerId());
+        QList<QStandardItem*> row;
+        row << new QStandardItem(QString::fromUtf8(inv->getInvoiceNumber()))
+            << new QStandardItem(cName)
+            << new QStandardItem(QString::fromUtf8(inv->getIssueDate()))
+            << new QStandardItem(QString::fromUtf8(inv->getDueDate()))
+            << new QStandardItem(QString::asprintf("$%.2f", inv->getTotal()))
+            << new QStandardItem(invoiceStatusName(inv->getStatus()));
+        rim->appendRow(row);
+    }
     m_recentInvoices->setModel(rim);
     m_recentInvoices->tableView()->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_recentInvoices->setMoneyColumns({4});
     m_recentInvoices->setStatusColumn(5);
+    if (sorted.empty()) m_recentInvoices->showEmpty(true);
 
-    // Overdue invoices
+    // Overdue invoices — sorted by most overdue first
+    std::vector<std::pair<const Invoice*, int>> overdue;  // (invoice, daysOver)
+    for (const auto& inv : invoices) {
+        if (inv.getIsDeleted() || inv.getStatus() != INVOICE_OVERDUE) continue;
+        const QDate due = QDate::fromString(
+            QString::fromUtf8(inv.getDueDate()), "d MMM yyyy");
+        const int days = due.isValid() ? due.daysTo(today) : 0;
+        overdue.push_back({&inv, days});
+    }
+    std::sort(overdue.begin(), overdue.end(),
+              [](const auto& a, const auto& b){ return a.second > b.second; });
+
     auto* oim = new QStandardItemModel(0, 4, m_overdueInvoices);
-    oim->setHorizontalHeaderLabels({"#", "CUSTOMER", "AMOUNT", "DAYS OVER"});
-    auto addOvr = [&](const QStringList& r) {
-        QList<QStandardItem*> items;
-        for (const QString& c : r) items << new QStandardItem(c);
-        oim->appendRow(items);
-    };
-    addOvr({"INV-1022", "Gamma Inc",    "$7,400.00", "18"});
-    addOvr({"INV-1018", "Zeta Corp",    "$2,100.00", "32"});
-    addOvr({"INV-1015", "Eta Partners", "$1,980.00", "47"});
-    addOvr({"INV-1009", "Theta SA",     "$3,620.00", "61"});
+    oim->setHorizontalHeaderLabels({"#","CUSTOMER","AMOUNT","DAYS OVER"});
+    for (auto& [inv, days] : overdue) {
+        const QString cName = custNames.count(inv->getCustomerId())
+                                  ? custNames.at(inv->getCustomerId())
+                                  : QString("#%1").arg(inv->getCustomerId());
+        QList<QStandardItem*> row;
+        row << new QStandardItem(QString::fromUtf8(inv->getInvoiceNumber()))
+            << new QStandardItem(cName)
+            << new QStandardItem(QString::asprintf("$%.2f", inv->getTotal()))
+            << new QStandardItem(QString::number(qMax(0, days)));
+        oim->appendRow(row);
+    }
     m_overdueInvoices->setModel(oim);
     m_overdueInvoices->tableView()->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_overdueInvoices->setMoneyColumns({2});
     m_overdueInvoices->setDaysOverColumn(3);
+    if (overdue.empty()) m_overdueInvoices->showEmpty(true);
 
     // Financial summary
-    if (m_arValue)  m_arValue->setText("$24,850");
-    if (m_apValue)  m_apValue->setText("$8,320");
-    if (m_netValue) m_netValue->setText("+$16,530");
-    if (m_ytdValue) m_ytdValue->setText("$61,400");
+    const double net = totalAR - totalAP;
+    if (m_arValue)  m_arValue->setText(fmtMoney(totalAR));
+    if (m_apValue)  m_apValue->setText(fmtMoney(totalAP));
+    if (m_netValue) m_netValue->setText(
+        net >= 0 ? "+" + fmtMoney(net) : "-" + fmtMoney(-net));
+    if (m_ytdValue) m_ytdValue->setText(fmtMoney(revenueYTD));
 }

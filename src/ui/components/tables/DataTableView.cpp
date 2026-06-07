@@ -120,7 +120,7 @@ DataTableView::DataTableView(QWidget* parent) : QWidget(parent)
     m_table->verticalHeader()->setDefaultSectionSize(36);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setHighlightSections(false);
-    m_table->horizontalHeader()->setSortIndicatorShown(false);
+    m_table->horizontalHeader()->setSortIndicatorShown(true);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->setFrameShape(QFrame::NoFrame);
 

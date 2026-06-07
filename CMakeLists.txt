@@ -19,6 +19,16 @@ set(CORE_SOURCES
     core/Product.cpp
     core/Invoice.cpp
     core/Payment.cpp
+    Account.cpp
+    BankAccount.cpp
+    CashAccount.cpp
+    CheckingAccount.cpp
+    SavingAccount.cpp
+    transaction/transaction.cpp
+    transaction/IncomeTransaction.cpp
+    transaction/ExpenseTransaction.cpp
+    transaction/RecurringIncome.cpp
+    transaction/RecurringExpense.cpp
 )
 
 set(MODEL_SOURCES
@@ -27,6 +37,14 @@ set(MODEL_SOURCES
     src/ui/models/ProductTableModel.cpp
     src/ui/models/InvoiceTableModel.cpp
     src/ui/models/PaymentTableModel.cpp
+)
+
+set(DIALOG_SOURCES
+    src/ui/dialogs/CustomerEditorDialog.cpp
+    src/ui/dialogs/InvoiceEditorDialog.cpp
+    src/ui/dialogs/SupplierEditorDialog.cpp
+    src/ui/dialogs/ProductEditorDialog.cpp
+    src/ui/dialogs/PaymentEditorDialog.cpp
 )
 
 set(UI_SOURCES
@@ -62,9 +80,9 @@ set(UI_SOURCES
     src/ui/components/display/MoneyLabel.cpp
 )
 
-add_executable(AccountingSystem main.cpp ${CORE_SOURCES} ${MODEL_SOURCES} ${UI_SOURCES})
+add_executable(AccountingSystem main.cpp ${CORE_SOURCES} ${MODEL_SOURCES} ${DIALOG_SOURCES} ${UI_SOURCES})
 
-target_include_directories(AccountingSystem PRIVATE src/ui core)
+target_include_directories(AccountingSystem PRIVATE src/ui core .)
 
 target_link_libraries(AccountingSystem PRIVATE Qt6::Widgets)
 
