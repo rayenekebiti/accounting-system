@@ -8,6 +8,8 @@
 class CustomerRepository {
     BinaryRecordFile file_;
     static constexpr int CUST_DELETED_OFFSET = 122;
+    static_assert(CUST_DELETED_OFFSET == 122,
+        "CUST_DELETED_OFFSET must match the isDeleted byte offset in Customer::serialize()");
 
 public:
     explicit CustomerRepository(const std::string& path)

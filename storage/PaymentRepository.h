@@ -8,6 +8,8 @@
 class PaymentRepository {
     BinaryRecordFile file_;
     static constexpr int PAY_DELETED_OFFSET = 50;
+    static_assert(PAY_DELETED_OFFSET == 50,
+        "PAY_DELETED_OFFSET must match the isDeleted byte offset in Payment::serialize()");
 
 public:
     explicit PaymentRepository(const std::string& path)

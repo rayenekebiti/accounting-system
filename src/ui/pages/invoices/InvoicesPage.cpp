@@ -8,6 +8,7 @@
 #include "Invoice.h"
 #include "storage/StorageService.h"
 #include <QAction>
+#include <QMessageBox>
 #include <QTabBar>
 #include <QTableView>
 #include <QHeaderView>
@@ -72,8 +73,11 @@ InvoicesPage::InvoicesPage(QWidget* parent)
 void InvoicesPage::loadFromStorage()
 {
     if (!StorageService::instance().isInitialized()) return;
-    auto rows = StorageService::instance().invoices().loadAll();
-    m_model->setRows(std::move(rows));
+    try {
+        m_model->setRows(StorageService::instance().invoices().loadAll());
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Load Error", QString::fromUtf8(e.what()));
+    }
 }
 
 void InvoicesPage::onSearch(const QString& text)
@@ -110,14 +114,15 @@ void InvoicesPage::buildActions()
     auto* refreshAct = new QAction("Refresh", this);
     connect(refreshAct, &QAction::triggered, this, &InvoicesPage::onRefreshClicked);
 
-    m_actions = {
-        newAct,
-        editAct,
-        voidAct,
-        new QAction("Print", this),
-        refreshAct,
-        new QAction("Export", this),
-    };
+    auto* printAct = new QAction("Print", this);
+    printAct->setEnabled(false);
+    printAct->setToolTip("Print coming in a future release");
+
+    auto* exportAct = new QAction("Export", this);
+    exportAct->setEnabled(false);
+    exportAct->setToolTip("Export coming in a future release");
+
+    m_actions = { newAct, editAct, voidAct, printAct, refreshAct, exportAct };
 }
 
 unsigned short int InvoicesPage::computeNextId() const
@@ -151,8 +156,14 @@ void InvoicesPage::onNewClicked()
     dlg.setForAdd(computeNextId(), suggestNextNumber());
     if (dlg.exec() == QDialog::Accepted) {
         Invoice inv = dlg.invoice();
-        if (StorageService::instance().isInitialized())
-            StorageService::instance().invoices().save(inv);
+        if (StorageService::instance().isInitialized()) {
+            try {
+                StorageService::instance().invoices().save(inv);
+            } catch (const std::exception& e) {
+                QMessageBox::critical(this, "Save Error", QString::fromUtf8(e.what()));
+                return;
+            }
+        }
         m_model->appendRow(inv);
         m_pagination->setTotalRecords(m_proxy->rowCount());
     }
@@ -174,8 +185,14 @@ void InvoicesPage::onVoidClicked()
     Invoice inv = m_model->at(srcRow);
     if (inv.getStatus() == INVOICE_VOID) return;
     inv.setStatus(INVOICE_VOID);
-    if (StorageService::instance().isInitialized())
-        StorageService::instance().invoices().update(inv);
+    if (StorageService::instance().isInitialized()) {
+        try {
+            StorageService::instance().invoices().update(inv);
+        } catch (const std::exception& e) {
+            QMessageBox::critical(this, "Update Error", QString::fromUtf8(e.what()));
+            return;
+        }
+    }
     m_model->updateRow(srcRow, inv);
 }
 
@@ -203,8 +220,14 @@ void InvoicesPage::onRowDoubleClicked(int proxyRow)
     dlg.setForEdit(m_model->at(srcRow));
     if (dlg.exec() == QDialog::Accepted) {
         Invoice inv = dlg.invoice();
-        if (StorageService::instance().isInitialized())
-            StorageService::instance().invoices().update(inv);
+        if (StorageService::instance().isInitialized()) {
+            try {
+                StorageService::instance().invoices().update(inv);
+            } catch (const std::exception& e) {
+                QMessageBox::critical(this, "Save Error", QString::fromUtf8(e.what()));
+                return;
+            }
+        }
         m_model->updateRow(srcRow, inv);
     }
 }

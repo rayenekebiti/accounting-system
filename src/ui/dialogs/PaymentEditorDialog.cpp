@@ -13,6 +13,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QDate>
+#include <QLocale>
 #include <stdexcept>
 
 PaymentEditorDialog::PaymentEditorDialog(QWidget* parent)
@@ -127,11 +128,13 @@ void PaymentEditorDialog::onPartyTypeChanged(int /*index*/)
     populatePartyCombo(m_partyTypeCombo->currentData().toInt());
 }
 
-void PaymentEditorDialog::setForAdd(unsigned short int nextId)
+void PaymentEditorDialog::setForAdd(unsigned short int nextId, const QString& suggestedNumber)
 {
     m_id = nextId;
     m_isDeleted = false;
-    m_numberEdit->setText(QString("PMT-%1").arg(nextId, 4, 10, QChar('0')));
+    m_numberEdit->setText(suggestedNumber.isEmpty()
+        ? QString("PMT-%1").arg(nextId, 4, 10, QChar('0'))
+        : suggestedNumber);
     m_partyTypeCombo->setCurrentIndex(0);
     populatePartyCombo(m_partyTypeCombo->currentData().toInt());
     m_partyCombo->setCurrentIndex(0);
@@ -158,7 +161,7 @@ void PaymentEditorDialog::setForEdit(const Payment& existing)
 
     m_invoiceIdEdit->setValue(existing.getInvoiceId());
 
-    const QDate d = QDate::fromString(
+    const QDate d = QLocale::c().toDate(
         QString::fromUtf8(existing.getDate()), "d MMM yyyy");
     m_dateEdit->setDate(d.isValid() ? d : QDate::currentDate());
 
@@ -186,15 +189,16 @@ void PaymentEditorDialog::accept()
 {
     clearErrors();
 
-    const QString number  = m_numberEdit->text().trimmed();
-    const int     partyId = m_partyCombo->currentData().toInt();
+    const QString number   = m_numberEdit->text().trimmed();
+    const int     partyIdx = m_partyCombo->currentIndex();
+    const int     partyId  = (partyIdx > 0) ? m_partyCombo->itemData(partyIdx).toInt() : 0;
 
     bool valid = true;
     if (number.isEmpty()) {
         m_numberRow->setError("Payment number is required.");
         valid = false;
     }
-    if (partyId == 0) {
+    if (partyIdx <= 0) {
         m_partyRow->setError("Select a party.");
         valid = false;
     }
@@ -203,7 +207,7 @@ void PaymentEditorDialog::accept()
     try {
         const QByteArray numBytes  = number.toUtf8();
         const QByteArray dateBytes =
-            m_dateEdit->date().toString("d MMM yyyy").toUtf8();
+            QLocale::c().toString(m_dateEdit->date(), "d MMM yyyy").toUtf8();
 
         const auto partyType = static_cast<PartyType>(
             m_partyTypeCombo->currentData().toInt());

@@ -2,6 +2,7 @@
 #include <QDir>
 #include <QFont>
 #include <QFontDatabase>
+#include <QMessageBox>
 #include <QStandardPaths>
 #include "app/MainWindow.h"
 #include "theme/ThemeManager.h"
@@ -23,7 +24,18 @@ int main(int argc, char* argv[])
     const QString dataPath =
         QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(dataPath);
-    StorageService::instance().initialize(dataPath.toStdString());
+
+    if (!StorageService::instance().initialize(dataPath.toStdString())) {
+        const QString reason = QString::fromStdString(
+            StorageService::instance().lastInitError());
+        QMessageBox::critical(nullptr, "AccountingPro — Cannot Start",
+            "Failed to open the data folder.\n\n"
+            + (reason.isEmpty() ? QString() : reason + "\n\n")
+            + "Path: " + dataPath + "\n\n"
+            "Ensure no other instance of AccountingPro is running "
+            "and that the folder is writable.");
+        return 1;
+    }
 
     MainWindow window;
     window.show();

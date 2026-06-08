@@ -9,6 +9,7 @@
 #include "storage/StorageService.h"
 #include "components/tables/PaginationProxy.h"
 #include <QAction>
+#include <QMessageBox>
 #include <QTableView>
 #include <QHeaderView>
 #include <QSortFilterProxyModel>
@@ -74,7 +75,11 @@ ProductsPage::ProductsPage(QWidget* parent)
 void ProductsPage::loadFromStorage()
 {
     if (!StorageService::instance().isInitialized()) return;
-    m_model->setRows(StorageService::instance().products().loadAll());
+    try {
+        m_model->setRows(StorageService::instance().products().loadAll());
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Load Error", QString::fromUtf8(e.what()));
+    }
 }
 
 void ProductsPage::onSearch(const QString& text)
@@ -109,8 +114,15 @@ void ProductsPage::buildActions()
     auto* deactAct = new QAction("Deactivate", this);
     connect(deactAct, &QAction::triggered, this, &ProductsPage::onDeactivateClicked);
 
-    m_actions = { addAct, editAct, deactAct, new QAction("Adjust Stock", this),
-                  refreshAct, new QAction("Export", this) };
+    auto* adjustAct = new QAction("Adjust Stock", this);
+    adjustAct->setEnabled(false);
+    adjustAct->setToolTip("Stock adjustments coming in a future release");
+
+    auto* exportAct = new QAction("Export", this);
+    exportAct->setEnabled(false);
+    exportAct->setToolTip("Export coming in a future release");
+
+    m_actions = { addAct, editAct, deactAct, adjustAct, refreshAct, exportAct };
 }
 
 unsigned short int ProductsPage::computeNextId() const
@@ -129,8 +141,14 @@ void ProductsPage::onAddClicked()
     dlg.setForAdd(computeNextId());
     if (dlg.exec() == QDialog::Accepted) {
         Product prod = dlg.product();
-        if (StorageService::instance().isInitialized())
-            StorageService::instance().products().save(prod);
+        if (StorageService::instance().isInitialized()) {
+            try {
+                StorageService::instance().products().save(prod);
+            } catch (const std::exception& e) {
+                QMessageBox::critical(this, "Save Error", QString::fromUtf8(e.what()));
+                return;
+            }
+        }
         m_model->appendRow(prod);
         m_pagination->setTotalRecords(m_proxy->rowCount());
     }
@@ -151,8 +169,14 @@ void ProductsPage::onDeactivateClicked()
     if (srcRow < 0 || srcRow >= m_model->rowCount()) return;
     Product prod = m_model->at(srcRow);
     prod.setIsDeleted(true);
-    if (StorageService::instance().isInitialized())
-        StorageService::instance().products().update(prod);
+    if (StorageService::instance().isInitialized()) {
+        try {
+            StorageService::instance().products().update(prod);
+        } catch (const std::exception& e) {
+            QMessageBox::critical(this, "Update Error", QString::fromUtf8(e.what()));
+            return;
+        }
+    }
     m_model->removeRow(srcRow);
     m_pagination->setTotalRecords(m_proxy->rowCount());
 }
@@ -174,8 +198,14 @@ void ProductsPage::onRowDoubleClicked(int proxyRow)
     dlg.setForEdit(m_model->at(srcRow));
     if (dlg.exec() == QDialog::Accepted) {
         Product prod = dlg.product();
-        if (StorageService::instance().isInitialized())
-            StorageService::instance().products().update(prod);
+        if (StorageService::instance().isInitialized()) {
+            try {
+                StorageService::instance().products().update(prod);
+            } catch (const std::exception& e) {
+                QMessageBox::critical(this, "Save Error", QString::fromUtf8(e.what()));
+                return;
+            }
+        }
         m_model->updateRow(srcRow, prod);
     }
 }

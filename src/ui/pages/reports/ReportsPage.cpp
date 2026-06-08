@@ -5,6 +5,8 @@
 #include "Customer.h"
 #include "Supplier.h"
 #include "Payment.h"
+#include <QLocale>
+#include <QMessageBox>
 #include <QListWidget>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -32,7 +34,7 @@ static QString fmtM(double v)
 
 static QDate parseDate(const char* raw)
 {
-    return QDate::fromString(QString::fromUtf8(raw), "d MMM yyyy");
+    return QLocale::c().toDate(QString::fromUtf8(raw), "d MMM yyyy");
 }
 
 // Returns {period-start-date, display-label} for a date under the given grouping.
@@ -112,10 +114,14 @@ ReportsPage::ReportsPage(QWidget* parent) : Page(parent)
     auto* exportBtn = new QPushButton("Export ▾", rightPanel);
     exportBtn->setObjectName("secondary");
     exportBtn->setFixedWidth(90);
+    exportBtn->setEnabled(false);
+    exportBtn->setToolTip("Export coming in a future release");
 
     auto* printBtn = new QPushButton("Print", rightPanel);
     printBtn->setObjectName("secondary");
     printBtn->setFixedWidth(70);
+    printBtn->setEnabled(false);
+    printBtn->setToolTip("Print coming in a future release");
 
     toolbar->addWidget(m_runBtn);
     toolbar->addWidget(exportBtn);
@@ -318,50 +324,54 @@ void ReportsPage::runAgedReceivables()
 {
     auto* model = beginReport(
         {"Customer", "Current", "1–30 Days", "31–60 Days", "61–90 Days", "90+ Days", "Total"});
+    try {
+        const auto customers = StorageService::instance().customers().loadAll();
+        const auto invoices  = StorageService::instance().invoices().loadAll();
+        const QDate today    = QDate::currentDate();
 
-    const auto customers = StorageService::instance().customers().loadAll();
-    const auto invoices  = StorageService::instance().invoices().loadAll();
-    const QDate today    = QDate::currentDate();
+        std::unordered_map<uint16_t, QString> custName;
+        for (const auto& c : customers)
+            custName[c.getId()] = QString::fromUtf8(c.getName());
 
-    // customer id → name
-    std::unordered_map<uint16_t, QString> custName;
-    for (const auto& c : customers)
-        custName[c.getId()] = QString::fromUtf8(c.getName());
+        struct Buckets { double current=0, d30=0, d60=0, d90=0, dOver=0; };
+        std::map<uint16_t, Buckets> aging;
 
-    struct Buckets { double current=0, d30=0, d60=0, d90=0, dOver=0; };
-    std::map<uint16_t, Buckets> aging;
+        for (const auto& inv : invoices) {
+            if (inv.getIsDeleted()) continue;
+            const auto s = inv.getStatus();
+            if (s == INVOICE_PAID || s == INVOICE_VOID || s == INVOICE_DRAFT) continue;
 
-    for (const auto& inv : invoices) {
-        if (inv.getIsDeleted()) continue;
-        const auto s = inv.getStatus();
-        if (s == INVOICE_PAID || s == INVOICE_VOID || s == INVOICE_DRAFT) continue;
+            const QDate due = parseDate(inv.getDueDate());
+            if (!due.isValid()) continue;
 
-        const QDate due = parseDate(inv.getDueDate());
-        if (!due.isValid()) continue;
-
-        auto& b = aging[inv.getCustomerId()];
-        if (due >= today) {
-            b.current += inv.getTotal();
-        } else {
-            const int days = due.daysTo(today);
-            if      (days <= 30) b.d30   += inv.getTotal();
-            else if (days <= 60) b.d60   += inv.getTotal();
-            else if (days <= 90) b.d90   += inv.getTotal();
-            else                 b.dOver += inv.getTotal();
+            auto& b = aging[inv.getCustomerId()];
+            if (due >= today) {
+                b.current += inv.getTotal();
+            } else {
+                const int days = due.daysTo(today);
+                if      (days <= 30) b.d30   += inv.getTotal();
+                else if (days <= 60) b.d60   += inv.getTotal();
+                else if (days <= 90) b.d90   += inv.getTotal();
+                else                 b.dOver += inv.getTotal();
+            }
         }
-    }
 
-    for (const auto& [id, b] : aging) {
-        const double total = b.current + b.d30 + b.d60 + b.d90 + b.dOver;
-        const QString name = custName.count(id) ? custName.at(id)
-                                                : QString("#%1").arg(id);
-        model->appendRow({
-            new QStandardItem(name),
-            money(b.current), money(b.d30), money(b.d60), money(b.d90), money(b.dOver),
-            money(total)
-        });
+        for (const auto& [id, b] : aging) {
+            const double total = b.current + b.d30 + b.d60 + b.d90 + b.dOver;
+            const QString name = custName.count(id) ? custName.at(id)
+                                                    : QString("#%1").arg(id);
+            model->appendRow({
+                new QStandardItem(name),
+                money(b.current), money(b.d30), money(b.d60), money(b.d90), money(b.dOver),
+                money(total)
+            });
+        }
+    } catch (const std::exception& e) {
+        m_resultTable->showBusy(false);
+        QMessageBox::critical(this, "Report Error", QString::fromUtf8(e.what()));
+        m_resultTable->showEmpty(true);
+        return;
     }
-
     endReport(model, {1, 2, 3, 4, 5, 6});
 }
 
@@ -369,68 +379,83 @@ void ReportsPage::runCustomerStatement()
 {
     auto* model = beginReport(
         {"Customer", "Open Invoices", "Outstanding", "Paid (YTD)", "Balance"});
+    try {
+        const auto customers = StorageService::instance().customers().loadAll();
+        const auto invoices  = StorageService::instance().invoices().loadAll();
 
-    const auto customers = StorageService::instance().customers().loadAll();
-    const auto invoices  = StorageService::instance().invoices().loadAll();
-
-    std::unordered_map<uint16_t, double> outstanding, paid;
-    std::unordered_map<uint16_t, int>    openCount;
-    for (const auto& inv : invoices) {
-        if (inv.getIsDeleted() || inv.getStatus() == INVOICE_VOID) continue;
-        if (inv.getStatus() == INVOICE_PAID)
-            paid[inv.getCustomerId()] += inv.getTotal();
-        else if (inv.getStatus() != INVOICE_DRAFT) {
-            outstanding[inv.getCustomerId()] += inv.getTotal();
-            openCount[inv.getCustomerId()]++;
+        std::unordered_map<uint16_t, double> outstanding, paid;
+        std::unordered_map<uint16_t, int>    openCount;
+        for (const auto& inv : invoices) {
+            if (inv.getIsDeleted() || inv.getStatus() == INVOICE_VOID) continue;
+            if (inv.getStatus() == INVOICE_PAID)
+                paid[inv.getCustomerId()] += inv.getTotal();
+            else if (inv.getStatus() != INVOICE_DRAFT) {
+                outstanding[inv.getCustomerId()] += inv.getTotal();
+                openCount[inv.getCustomerId()]++;
+            }
         }
-    }
 
-    for (const auto& c : customers) {
-        if (c.getIsDeleted()) continue;
-        const uint16_t id = c.getId();
-        model->appendRow({
-            new QStandardItem(QString::fromUtf8(c.getName())),
-            num(openCount.count(id) ? openCount.at(id) : 0),
-            money(outstanding.count(id) ? outstanding.at(id) : 0.0),
-            money(paid.count(id)        ? paid.at(id)        : 0.0),
-            money(c.getBalance())
-        });
+        for (const auto& c : customers) {
+            if (c.getIsDeleted()) continue;
+            const uint16_t id = c.getId();
+            model->appendRow({
+                new QStandardItem(QString::fromUtf8(c.getName())),
+                num(openCount.count(id) ? openCount.at(id) : 0),
+                money(outstanding.count(id) ? outstanding.at(id) : 0.0),
+                money(paid.count(id)        ? paid.at(id)        : 0.0),
+                money(c.getBalance())
+            });
+        }
+    } catch (const std::exception& e) {
+        m_resultTable->showBusy(false);
+        QMessageBox::critical(this, "Report Error", QString::fromUtf8(e.what()));
+        m_resultTable->showEmpty(true);
+        return;
     }
-
     endReport(model, {2, 3, 4});
 }
 
 void ReportsPage::runAgedPayables()
 {
     auto* model = beginReport({"Supplier", "Balance Owed", "Email"});
-
-    for (const auto& s : StorageService::instance().suppliers().loadAll()) {
-        if (s.getIsDeleted() || s.getBalance() <= 0.0) continue;
-        model->appendRow({
-            new QStandardItem(QString::fromUtf8(s.getName())),
-            money(s.getBalance()),
-            new QStandardItem(QString::fromUtf8(s.getEmail()))
-        });
+    try {
+        for (const auto& s : StorageService::instance().suppliers().loadAll()) {
+            if (s.getIsDeleted() || s.getBalance() <= 0.0) continue;
+            model->appendRow({
+                new QStandardItem(QString::fromUtf8(s.getName())),
+                money(s.getBalance()),
+                new QStandardItem(QString::fromUtf8(s.getEmail()))
+            });
+        }
+    } catch (const std::exception& e) {
+        m_resultTable->showBusy(false);
+        QMessageBox::critical(this, "Report Error", QString::fromUtf8(e.what()));
+        m_resultTable->showEmpty(true);
+        return;
     }
-
     endReport(model, {1});
 }
 
 void ReportsPage::runSupplierStatement()
 {
     auto* model = beginReport({"Supplier", "Balance", "Email", "Phone", "Tax Number"});
-
-    for (const auto& s : StorageService::instance().suppliers().loadAll()) {
-        if (s.getIsDeleted()) continue;
-        model->appendRow({
-            new QStandardItem(QString::fromUtf8(s.getName())),
-            money(s.getBalance()),
-            new QStandardItem(QString::fromUtf8(s.getEmail())),
-            new QStandardItem(QString::fromUtf8(s.getPhone())),
-            new QStandardItem(QString::fromUtf8(s.getTaxNumber()))
-        });
+    try {
+        for (const auto& s : StorageService::instance().suppliers().loadAll()) {
+            if (s.getIsDeleted()) continue;
+            model->appendRow({
+                new QStandardItem(QString::fromUtf8(s.getName())),
+                money(s.getBalance()),
+                new QStandardItem(QString::fromUtf8(s.getEmail())),
+                new QStandardItem(QString::fromUtf8(s.getPhone())),
+                new QStandardItem(QString::fromUtf8(s.getTaxNumber()))
+            });
+        }
+    } catch (const std::exception& e) {
+        m_resultTable->showBusy(false);
+        QMessageBox::critical(this, "Report Error", QString::fromUtf8(e.what()));
+        m_resultTable->showEmpty(true);
+        return;
     }
-
     endReport(model, {1});
 }
 
@@ -446,37 +471,42 @@ void ReportsPage::runSalesSummary()
     std::map<QDate, std::pair<QString, Data>> byPeriod;
     std::map<QString, Data>                   byCust;
 
-    const auto customers = StorageService::instance().customers().loadAll();
-    std::unordered_map<uint16_t, QString> custName;
-    for (const auto& c : customers)
-        custName[c.getId()] = QString::fromUtf8(c.getName());
+    try {
+        const auto customers = StorageService::instance().customers().loadAll();
+        std::unordered_map<uint16_t, QString> custName;
+        for (const auto& c : customers)
+            custName[c.getId()] = QString::fromUtf8(c.getName());
 
-    for (const auto& inv : StorageService::instance().invoices().loadAll()) {
-        if (inv.getIsDeleted()) continue;
-        const auto s = inv.getStatus();
-        if (s == INVOICE_DRAFT || s == INVOICE_VOID) continue;
+        for (const auto& inv : StorageService::instance().invoices().loadAll()) {
+            if (inv.getIsDeleted()) continue;
+            const auto s = inv.getStatus();
+            if (s == INVOICE_DRAFT || s == INVOICE_VOID) continue;
 
-        const QDate d = parseDate(inv.getIssueDate());
-        if (!d.isValid() || d < from || d > to) continue;
+            const QDate d = parseDate(inv.getIssueDate());
+            if (!d.isValid() || d < from || d > to) continue;
 
-        if (byCustomer) {
-            const QString name = custName.count(inv.getCustomerId())
-                                     ? custName.at(inv.getCustomerId())
-                                     : QString("#%1").arg(inv.getCustomerId());
-            auto& data = byCust[name];
-            data.count++;
-            data.subtotal += inv.getSubtotal();
-            data.tax      += inv.getTaxAmount();
-            data.total    += inv.getTotal();
-        } else {
-            auto [key, label] = toPeriod(d, groupBy);
-            auto& [lbl, data] = byPeriod[key];
-            lbl = label;
-            data.count++;
-            data.subtotal += inv.getSubtotal();
-            data.tax      += inv.getTaxAmount();
-            data.total    += inv.getTotal();
+            if (byCustomer) {
+                const QString name = custName.count(inv.getCustomerId())
+                                         ? custName.at(inv.getCustomerId())
+                                         : QString("#%1").arg(inv.getCustomerId());
+                auto& data = byCust[name];
+                data.count++;
+                data.subtotal += inv.getSubtotal();
+                data.tax      += inv.getTaxAmount();
+                data.total    += inv.getTotal();
+            } else {
+                auto [key, label] = toPeriod(d, groupBy);
+                auto& [lbl, data] = byPeriod[key];
+                lbl = label;
+                data.count++;
+                data.subtotal += inv.getSubtotal();
+                data.tax      += inv.getTaxAmount();
+                data.total    += inv.getTotal();
+            }
         }
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Report Error", QString::fromUtf8(e.what()));
+        return;
     }
 
     auto* model = beginReport(
@@ -502,11 +532,6 @@ void ReportsPage::runInvoiceRegister()
     const QDate from = m_fromDate->date();
     const QDate to   = m_toDate->date();
 
-    const auto customers = StorageService::instance().customers().loadAll();
-    std::unordered_map<uint16_t, QString> custName;
-    for (const auto& c : customers)
-        custName[c.getId()] = QString::fromUtf8(c.getName());
-
     auto statusText = [](InvoiceStatus s) -> QString {
         switch (s) {
             case INVOICE_DRAFT:   return "Draft";
@@ -520,27 +545,37 @@ void ReportsPage::runInvoiceRegister()
 
     auto* model = beginReport(
         {"#", "Customer", "Issue Date", "Due Date", "Subtotal", "Tax", "Total", "Status"});
+    try {
+        const auto customers = StorageService::instance().customers().loadAll();
+        std::unordered_map<uint16_t, QString> custName;
+        for (const auto& c : customers)
+            custName[c.getId()] = QString::fromUtf8(c.getName());
 
-    for (const auto& inv : StorageService::instance().invoices().loadAll()) {
-        if (inv.getIsDeleted()) continue;
-        const QDate d = parseDate(inv.getIssueDate());
-        if (d.isValid() && (d < from || d > to)) continue;
+        for (const auto& inv : StorageService::instance().invoices().loadAll()) {
+            if (inv.getIsDeleted()) continue;
+            const QDate d = parseDate(inv.getIssueDate());
+            if (d.isValid() && (d < from || d > to)) continue;
 
-        const QString cname = custName.count(inv.getCustomerId())
-                                  ? custName.at(inv.getCustomerId())
-                                  : QString("#%1").arg(inv.getCustomerId());
-        model->appendRow({
-            new QStandardItem(QString::fromUtf8(inv.getInvoiceNumber())),
-            new QStandardItem(cname),
-            new QStandardItem(QString::fromUtf8(inv.getIssueDate())),
-            new QStandardItem(QString::fromUtf8(inv.getDueDate())),
-            money(inv.getSubtotal()),
-            money(inv.getTaxAmount()),
-            money(inv.getTotal()),
-            new QStandardItem(statusText(inv.getStatus()))
-        });
+            const QString cname = custName.count(inv.getCustomerId())
+                                      ? custName.at(inv.getCustomerId())
+                                      : QString("#%1").arg(inv.getCustomerId());
+            model->appendRow({
+                new QStandardItem(QString::fromUtf8(inv.getInvoiceNumber())),
+                new QStandardItem(cname),
+                new QStandardItem(QString::fromUtf8(inv.getIssueDate())),
+                new QStandardItem(QString::fromUtf8(inv.getDueDate())),
+                money(inv.getSubtotal()),
+                money(inv.getTaxAmount()),
+                money(inv.getTotal()),
+                new QStandardItem(statusText(inv.getStatus()))
+            });
+        }
+    } catch (const std::exception& e) {
+        m_resultTable->showBusy(false);
+        QMessageBox::critical(this, "Report Error", QString::fromUtf8(e.what()));
+        m_resultTable->showEmpty(true);
+        return;
     }
-
     endReport(model, {4, 5, 6}, 7);
 }
 
@@ -554,21 +589,26 @@ void ReportsPage::runTaxSummary()
     struct Data { int count=0; double taxable=0, tax=0, total=0; };
     std::map<QDate, std::pair<QString, Data>> byPeriod;
 
-    for (const auto& inv : StorageService::instance().invoices().loadAll()) {
-        if (inv.getIsDeleted()) continue;
-        const auto s = inv.getStatus();
-        if (s != INVOICE_POSTED && s != INVOICE_PAID) continue;
+    try {
+        for (const auto& inv : StorageService::instance().invoices().loadAll()) {
+            if (inv.getIsDeleted()) continue;
+            const auto s = inv.getStatus();
+            if (s != INVOICE_POSTED && s != INVOICE_PAID) continue;
 
-        const QDate d = parseDate(inv.getIssueDate());
-        if (!d.isValid() || d < from || d > to) continue;
+            const QDate d = parseDate(inv.getIssueDate());
+            if (!d.isValid() || d < from || d > to) continue;
 
-        auto [key, label] = toPeriod(d, groupBy);
-        auto& [lbl, data] = byPeriod[key];
-        lbl = label;
-        data.count++;
-        data.taxable += inv.getSubtotal();
-        data.tax     += inv.getTaxAmount();
-        data.total   += inv.getTotal();
+            auto [key, label] = toPeriod(d, groupBy);
+            auto& [lbl, data] = byPeriod[key];
+            lbl = label;
+            data.count++;
+            data.taxable += inv.getSubtotal();
+            data.tax     += inv.getTaxAmount();
+            data.total   += inv.getTotal();
+        }
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Report Error", QString::fromUtf8(e.what()));
+        return;
     }
 
     auto* model = beginReport({"Period", "Invoices", "Taxable Amount", "Tax Amount", "Total"});
@@ -591,20 +631,25 @@ void ReportsPage::runVATReturn()
     struct Data { double tax=0, net=0, gross=0; };
     std::map<QDate, std::pair<QString, Data>> byPeriod;
 
-    for (const auto& inv : StorageService::instance().invoices().loadAll()) {
-        if (inv.getIsDeleted()) continue;
-        const auto s = inv.getStatus();
-        if (s != INVOICE_POSTED && s != INVOICE_PAID) continue;
+    try {
+        for (const auto& inv : StorageService::instance().invoices().loadAll()) {
+            if (inv.getIsDeleted()) continue;
+            const auto s = inv.getStatus();
+            if (s != INVOICE_POSTED && s != INVOICE_PAID) continue;
 
-        const QDate d = parseDate(inv.getIssueDate());
-        if (!d.isValid() || d < from || d > to) continue;
+            const QDate d = parseDate(inv.getIssueDate());
+            if (!d.isValid() || d < from || d > to) continue;
 
-        auto [key, label] = toPeriod(d, groupBy);
-        auto& [lbl, data] = byPeriod[key];
-        lbl = label;
-        data.tax   += inv.getTaxAmount();
-        data.net   += inv.getSubtotal();
-        data.gross += inv.getTotal();
+            auto [key, label] = toPeriod(d, groupBy);
+            auto& [lbl, data] = byPeriod[key];
+            lbl = label;
+            data.tax   += inv.getTaxAmount();
+            data.net   += inv.getSubtotal();
+            data.gross += inv.getTotal();
+        }
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Report Error", QString::fromUtf8(e.what()));
+        return;
     }
 
     auto* model = beginReport({"Period", "Output VAT", "Net Sales", "Gross Sales"});
@@ -627,26 +672,29 @@ void ReportsPage::runProfitAndLoss()
     struct Data { double revenue=0, expenses=0; };
     std::map<QDate, std::pair<QString, Data>> byPeriod;
 
-    // Revenue: paid invoices
-    for (const auto& inv : StorageService::instance().invoices().loadAll()) {
-        if (inv.getIsDeleted() || inv.getStatus() != INVOICE_PAID) continue;
-        const QDate d = parseDate(inv.getIssueDate());
-        if (!d.isValid() || d < from || d > to) continue;
-        auto [key, label] = toPeriod(d, groupBy);
-        auto& [lbl, data] = byPeriod[key];
-        lbl = label;
-        data.revenue += inv.getTotal();
-    }
+    try {
+        for (const auto& inv : StorageService::instance().invoices().loadAll()) {
+            if (inv.getIsDeleted() || inv.getStatus() != INVOICE_PAID) continue;
+            const QDate d = parseDate(inv.getIssueDate());
+            if (!d.isValid() || d < from || d > to) continue;
+            auto [key, label] = toPeriod(d, groupBy);
+            auto& [lbl, data] = byPeriod[key];
+            lbl = label;
+            data.revenue += inv.getTotal();
+        }
 
-    // Expenses: payments to suppliers
-    for (const auto& pay : StorageService::instance().payments().loadAll()) {
-        if (pay.getIsDeleted() || pay.getPartyType() != PARTY_SUPPLIER) continue;
-        const QDate d = parseDate(pay.getDate());
-        if (!d.isValid() || d < from || d > to) continue;
-        auto [key, label] = toPeriod(d, groupBy);
-        auto& [lbl, data] = byPeriod[key];
-        if (lbl.isEmpty()) lbl = label;
-        data.expenses += pay.getAmount();
+        for (const auto& pay : StorageService::instance().payments().loadAll()) {
+            if (pay.getIsDeleted() || pay.getPartyType() != PARTY_SUPPLIER) continue;
+            const QDate d = parseDate(pay.getDate());
+            if (!d.isValid() || d < from || d > to) continue;
+            auto [key, label] = toPeriod(d, groupBy);
+            auto& [lbl, data] = byPeriod[key];
+            if (lbl.isEmpty()) lbl = label;
+            data.expenses += pay.getAmount();
+        }
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Report Error", QString::fromUtf8(e.what()));
+        return;
     }
 
     auto* model = beginReport({"Period", "Revenue", "Expenses", "Gross Profit", "Margin %"});
@@ -672,17 +720,22 @@ void ReportsPage::runCashFlow()
     struct Data { double inflows=0, outflows=0; };
     std::map<QDate, std::pair<QString, Data>> byPeriod;
 
-    for (const auto& pay : StorageService::instance().payments().loadAll()) {
-        if (pay.getIsDeleted()) continue;
-        const QDate d = parseDate(pay.getDate());
-        if (!d.isValid() || d < from || d > to) continue;
-        auto [key, label] = toPeriod(d, groupBy);
-        auto& [lbl, data] = byPeriod[key];
-        lbl = label;
-        if (pay.getPartyType() == PARTY_CUSTOMER)
-            data.inflows  += pay.getAmount();
-        else
-            data.outflows += pay.getAmount();
+    try {
+        for (const auto& pay : StorageService::instance().payments().loadAll()) {
+            if (pay.getIsDeleted()) continue;
+            const QDate d = parseDate(pay.getDate());
+            if (!d.isValid() || d < from || d > to) continue;
+            auto [key, label] = toPeriod(d, groupBy);
+            auto& [lbl, data] = byPeriod[key];
+            lbl = label;
+            if (pay.getPartyType() == PARTY_CUSTOMER)
+                data.inflows  += pay.getAmount();
+            else
+                data.outflows += pay.getAmount();
+        }
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Report Error", QString::fromUtf8(e.what()));
+        return;
     }
 
     auto* model = beginReport(

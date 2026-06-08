@@ -8,6 +8,7 @@
 #include "Payment.h"
 #include "storage/StorageService.h"
 #include <QAction>
+#include <QMessageBox>
 #include <QTableView>
 #include <QHeaderView>
 #include <QSortFilterProxyModel>
@@ -73,8 +74,11 @@ PaymentsPage::PaymentsPage(QWidget* parent)
 void PaymentsPage::loadFromStorage()
 {
     if (!StorageService::instance().isInitialized()) return;
-    auto rows = StorageService::instance().payments().loadAll();
-    m_model->setRows(std::move(rows));
+    try {
+        m_model->setRows(StorageService::instance().payments().loadAll());
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Load Error", QString::fromUtf8(e.what()));
+    }
 }
 
 void PaymentsPage::onSearch(const QString& text)
@@ -106,12 +110,11 @@ void PaymentsPage::buildActions()
     auto* refreshAct = new QAction("Refresh", this);
     connect(refreshAct, &QAction::triggered, this, &PaymentsPage::onRefreshClicked);
 
-    m_actions = {
-        receiveAct,
-        editAct,
-        refreshAct,
-        new QAction("Export", this),
-    };
+    auto* exportAct = new QAction("Export", this);
+    exportAct->setEnabled(false);
+    exportAct->setToolTip("Export coming in a future release");
+
+    m_actions = { receiveAct, editAct, refreshAct, exportAct };
 }
 
 unsigned short int PaymentsPage::computeNextId() const
@@ -124,14 +127,35 @@ unsigned short int PaymentsPage::computeNextId() const
     return static_cast<unsigned short int>(maxId + 1);
 }
 
+QString PaymentsPage::suggestNextNumber() const
+{
+    int maxNum = 0;
+    static const QRegularExpression numericTail("(\\d+)$");
+    for (int i = 0; i < m_model->rowCount(); ++i) {
+        const QString num = QString::fromUtf8(m_model->at(i).getPaymentNumber());
+        const auto m = numericTail.match(num);
+        if (m.hasMatch()) {
+            const int n = m.captured(1).toInt();
+            if (n > maxNum) maxNum = n;
+        }
+    }
+    return QString("PMT-%1").arg(maxNum + 1, 4, 10, QChar('0'));
+}
+
 void PaymentsPage::onAddClicked()
 {
     PaymentEditorDialog dlg(this);
-    dlg.setForAdd(computeNextId());
+    dlg.setForAdd(computeNextId(), suggestNextNumber());
     if (dlg.exec() == QDialog::Accepted) {
         Payment pay = dlg.payment();
-        if (StorageService::instance().isInitialized())
-            StorageService::instance().payments().save(pay);
+        if (StorageService::instance().isInitialized()) {
+            try {
+                StorageService::instance().payments().save(pay);
+            } catch (const std::exception& e) {
+                QMessageBox::critical(this, "Save Error", QString::fromUtf8(e.what()));
+                return;
+            }
+        }
         m_model->appendRow(pay);
         m_pagination->setTotalRecords(m_proxy->rowCount());
     }
@@ -160,8 +184,14 @@ void PaymentsPage::onRowDoubleClicked(int proxyRow)
     dlg.setForEdit(m_model->at(srcRow));
     if (dlg.exec() == QDialog::Accepted) {
         Payment pay = dlg.payment();
-        if (StorageService::instance().isInitialized())
-            StorageService::instance().payments().update(pay);
+        if (StorageService::instance().isInitialized()) {
+            try {
+                StorageService::instance().payments().update(pay);
+            } catch (const std::exception& e) {
+                QMessageBox::critical(this, "Save Error", QString::fromUtf8(e.what()));
+                return;
+            }
+        }
         m_model->updateRow(srcRow, pay);
     }
 }

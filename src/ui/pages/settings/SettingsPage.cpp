@@ -1,5 +1,6 @@
 #include "pages/settings/SettingsPage.h"
 #include "theme/ThemeManager.h"
+#include <QApplication>
 #include "components/forms/FormRow.h"
 #include "components/forms/SectionHeader.h"
 #include <QListWidget>
@@ -127,6 +128,8 @@ QWidget* SettingsPage::buildPreferencesPanel()
 
     m_languageCombo = new QComboBox(w);
     m_languageCombo->addItems({"English", "Français", "العربية"});
+    connect(m_languageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &SettingsPage::applyLanguage);
 
     l->addWidget(new SectionHeader("Display & Formatting", w));
     l->addSpacing(16);
@@ -229,7 +232,9 @@ void SettingsPage::loadFromStore()
 
     m_currencyCombo  ->setCurrentIndex(s.value("prefs/currency",   0).toInt());
     m_dateFormatCombo->setCurrentIndex(s.value("prefs/dateFormat", 0).toInt());
-    m_languageCombo  ->setCurrentIndex(s.value("prefs/language",   0).toInt());
+    const int langIdx = s.value("prefs/language", 0).toInt();
+    m_languageCombo  ->setCurrentIndex(langIdx);
+    applyLanguage(langIdx);
 
     m_invoicePrefix ->setText(s.value("numbering/invoicePrefix", "INV-").toString());
     m_nextInvoiceNum->setText(s.value("numbering/nextInvoice",  "1001").toString());
@@ -314,6 +319,11 @@ void SettingsPage::onSaveClicked()
 void SettingsPage::onRevertClicked()
 {
     loadFromStore();
+}
+
+void SettingsPage::applyLanguage(int idx)
+{
+    qApp->setLayoutDirection(idx == 2 ? Qt::RightToLeft : Qt::LeftToRight);
 }
 
 void SettingsPage::markDirty()

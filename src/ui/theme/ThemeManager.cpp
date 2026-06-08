@@ -86,7 +86,9 @@ QString ThemeManager::buildStyleSheet(Theme theme) const
     ss += QString("QComboBox:focus { border-color: %1; }\n").arg(accent);
     ss += QString("QComboBox:hover:!focus { border-color: %1; }\n").arg(borderH);
     ss += "QComboBox::drop-down { border: none; width: 20px; subcontrol-position: right center; }\n";
-    ss += "QComboBox::down-arrow { width: 10px; height: 10px; }\n";
+    ss += QString("QComboBox::down-arrow { border-left: 4px solid transparent;"
+                  " border-right: 4px solid transparent;"
+                  " border-top: 5px solid %1; width: 0; height: 0; }\n").arg(textSec);
     ss += QString("QComboBox QAbstractItemView { background: %1; border: 1px solid %2;"
                   " border-radius: 3px; selection-background-color: %3;"
                   " selection-color: %4; outline: none; padding: 2px; }\n")

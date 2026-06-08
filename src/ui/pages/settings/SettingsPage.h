@@ -21,6 +21,7 @@ private slots:
     void onSaveClicked();
     void onRevertClicked();
     void markDirty();
+    void applyLanguage(int idx);
 
 private:
     QWidget* buildCompanyPanel();

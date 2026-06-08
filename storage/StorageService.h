@@ -9,6 +9,8 @@
 #include "ProductRepository.h"
 #include "InvoiceRepository.h"
 #include "PaymentRepository.h"
+#include <QLockFile>
+#include <QString>
 #include <memory>
 #include <string>
 #include <stdexcept>
@@ -17,9 +19,10 @@
 // Owns all repositories; the UI never touches a repository constructor directly.
 //
 // Usage:
-//   StorageService::instance().initialize("/path/to/data/dir");
+//   if (!StorageService::instance().initialize("/path/to/data/dir")) { ... }
 //   StorageService::instance().customers().save(cust);
 class StorageService {
+    std::unique_ptr<QLockFile>          lockFile_;
     std::unique_ptr<TransactionRepository> transactions_;
     std::unique_ptr<AccountRepository>     accounts_;
     std::unique_ptr<CategoryRepository>    categories_;
@@ -29,6 +32,7 @@ class StorageService {
     std::unique_ptr<ProductRepository>     products_;
     std::unique_ptr<InvoiceRepository>     invoices_;
     std::unique_ptr<PaymentRepository>     payments_;
+    std::string                            initError_;
 
     StorageService() = default;
 
@@ -39,10 +43,28 @@ public:
         return inst;
     }
 
+    // Returns the human-readable reason the last initialize() call failed.
+    const std::string& lastInitError() const { return initError_; }
+
     // Opens (or creates) all data files under dataDir.
-    // Returns false if any file fails to open; throws std::runtime_error on I/O errors.
+    // Acquires an exclusive lock to prevent two instances from running simultaneously.
+    // Returns false and sets lastInitError() if the lock cannot be acquired
+    // or any file fails to open.
     bool initialize(const std::string& dataDir)
     {
+        initError_.clear();
+
+        // Acquire an exclusive file lock so a second instance fails fast.
+        const QString lockPath = QString::fromStdString(dataDir + "/accountingpro.lock");
+        lockFile_ = std::make_unique<QLockFile>(lockPath);
+        if (!lockFile_->tryLock(300)) {
+            lockFile_.reset();
+            initError_ =
+                "AccountingPro is already running, "
+                "or the data folder is locked by another process.";
+            return false;
+        }
+
         try {
             transactions_ = std::make_unique<TransactionRepository>(dataDir + "/transactions.dat");
             accounts_     = std::make_unique<AccountRepository>    (dataDir + "/accounts.dat");
@@ -54,7 +76,9 @@ public:
             invoices_     = std::make_unique<InvoiceRepository>    (dataDir + "/invoices.dat");
             payments_     = std::make_unique<PaymentRepository>    (dataDir + "/payments.dat");
             return true;
-        } catch (const std::exception&) {
+        } catch (const std::exception& e) {
+            initError_ = e.what();
+            lockFile_.reset();
             return false;
         }
     }

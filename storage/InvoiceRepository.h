@@ -8,6 +8,8 @@
 class InvoiceRepository {
     BinaryRecordFile file_;
     static constexpr int INV_DELETED_OFFSET = 72;
+    static_assert(INV_DELETED_OFFSET == 72,
+        "INV_DELETED_OFFSET must match the isDeleted byte offset in Invoice::serialize()");
 
 public:
     explicit InvoiceRepository(const std::string& path)

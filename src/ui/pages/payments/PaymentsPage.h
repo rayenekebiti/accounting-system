@@ -27,6 +27,7 @@ private:
     void buildActions();
     void loadFromStorage();
     unsigned short int computeNextId() const;
+    QString suggestNextNumber() const;
 
     PaymentTableModel*     m_model;
     QSortFilterProxyModel* m_proxy;

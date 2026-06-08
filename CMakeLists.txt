@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(AccountingSystem VERSION 1.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 26)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_AUTOMOC ON)
@@ -90,4 +90,20 @@ if(WIN32)
     set_target_properties(AccountingSystem PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
+
+    # Deploy Qt runtime DLLs next to the executable after each build.
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt
+        HINTS "${Qt6_DIR}/../../../bin"
+    )
+    if(WINDEPLOYQT_EXECUTABLE)
+        add_custom_command(TARGET AccountingSystem POST_BUILD
+            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+                --no-translations
+                --no-system-d3d-compiler
+                --no-opengl-sw
+                "$<TARGET_FILE:AccountingSystem>"
+            COMMENT "Deploying Qt runtime (windeployqt)..."
+            VERBATIM
+        )
+    endif()
 endif()

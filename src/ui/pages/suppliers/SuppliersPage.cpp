@@ -9,6 +9,7 @@
 #include "storage/StorageService.h"
 #include "components/tables/PaginationProxy.h"
 #include <QAction>
+#include <QMessageBox>
 #include <QTableView>
 #include <QHeaderView>
 #include <QSortFilterProxyModel>
@@ -64,7 +65,11 @@ SuppliersPage::SuppliersPage(QWidget* parent)
 void SuppliersPage::loadFromStorage()
 {
     if (!StorageService::instance().isInitialized()) return;
-    m_model->setRows(StorageService::instance().suppliers().loadAll());
+    try {
+        m_model->setRows(StorageService::instance().suppliers().loadAll());
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Load Error", QString::fromUtf8(e.what()));
+    }
 }
 
 void SuppliersPage::onSearch(const QString& text)
@@ -98,7 +103,11 @@ void SuppliersPage::buildActions()
     auto* refreshAct = new QAction("Refresh", this);
     connect(refreshAct, &QAction::triggered, this, &SuppliersPage::onRefreshClicked);
 
-    m_actions = { addAct, editAct, deactAct, refreshAct, new QAction("Export", this) };
+    auto* exportAct = new QAction("Export", this);
+    exportAct->setEnabled(false);
+    exportAct->setToolTip("Export coming in a future release");
+
+    m_actions = { addAct, editAct, deactAct, refreshAct, exportAct };
 }
 
 unsigned short int SuppliersPage::computeNextId() const
@@ -117,8 +126,14 @@ void SuppliersPage::onAddClicked()
     dlg.setForAdd(computeNextId());
     if (dlg.exec() == QDialog::Accepted) {
         Supplier supp = dlg.supplier();
-        if (StorageService::instance().isInitialized())
-            StorageService::instance().suppliers().save(supp);
+        if (StorageService::instance().isInitialized()) {
+            try {
+                StorageService::instance().suppliers().save(supp);
+            } catch (const std::exception& e) {
+                QMessageBox::critical(this, "Save Error", QString::fromUtf8(e.what()));
+                return;
+            }
+        }
         m_model->appendRow(supp);
         m_pagination->setTotalRecords(m_proxy->rowCount());
     }
@@ -139,8 +154,14 @@ void SuppliersPage::onDeactivateClicked()
     if (srcRow < 0 || srcRow >= m_model->rowCount()) return;
     Supplier supp = m_model->at(srcRow);
     supp.setIsDeleted(true);
-    if (StorageService::instance().isInitialized())
-        StorageService::instance().suppliers().update(supp);
+    if (StorageService::instance().isInitialized()) {
+        try {
+            StorageService::instance().suppliers().update(supp);
+        } catch (const std::exception& e) {
+            QMessageBox::critical(this, "Update Error", QString::fromUtf8(e.what()));
+            return;
+        }
+    }
     m_model->removeRow(srcRow);
     m_pagination->setTotalRecords(m_proxy->rowCount());
 }
@@ -162,8 +183,14 @@ void SuppliersPage::onRowDoubleClicked(int proxyRow)
     dlg.setForEdit(m_model->at(srcRow));
     if (dlg.exec() == QDialog::Accepted) {
         Supplier supp = dlg.supplier();
-        if (StorageService::instance().isInitialized())
-            StorageService::instance().suppliers().update(supp);
+        if (StorageService::instance().isInitialized()) {
+            try {
+                StorageService::instance().suppliers().update(supp);
+            } catch (const std::exception& e) {
+                QMessageBox::critical(this, "Save Error", QString::fromUtf8(e.what()));
+                return;
+            }
+        }
         m_model->updateRow(srcRow, supp);
     }
 }

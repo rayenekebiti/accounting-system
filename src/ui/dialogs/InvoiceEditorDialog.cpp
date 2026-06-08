@@ -11,6 +11,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QDate>
+#include <QLocale>
 #include <stdexcept>
 
 InvoiceEditorDialog::InvoiceEditorDialog(QWidget* parent)
@@ -156,11 +157,11 @@ void InvoiceEditorDialog::setForEdit(const Invoice& existing)
     const int custIdx = m_customerCombo->findData((int)existing.getCustomerId());
     m_customerCombo->setCurrentIndex(custIdx >= 0 ? custIdx : 0);
 
-    const QDate issue = QDate::fromString(
+    const QDate issue = QLocale::c().toDate(
         QString::fromUtf8(existing.getIssueDate()), "d MMM yyyy");
     m_issueEdit->setDate(issue.isValid() ? issue : QDate::currentDate());
 
-    const QDate due = QDate::fromString(
+    const QDate due = QLocale::c().toDate(
         QString::fromUtf8(existing.getDueDate()), "d MMM yyyy");
     m_dueEdit->setDate(due.isValid() ? due : QDate::currentDate().addDays(30));
 
@@ -192,15 +193,16 @@ void InvoiceEditorDialog::accept()
 {
     clearErrors();
 
-    const QString number = m_numberEdit->text().trimmed();
-    const int customerId = m_customerCombo->currentData().toInt();
+    const QString number  = m_numberEdit->text().trimmed();
+    const int     custIdx = m_customerCombo->currentIndex();
+    const int customerId  = (custIdx > 0) ? m_customerCombo->itemData(custIdx).toInt() : 0;
 
     bool valid = true;
     if (number.isEmpty()) {
         m_numberRow->setError("Invoice number is required.");
         valid = false;
     }
-    if (customerId == 0) {
+    if (custIdx <= 0) {
         m_customerRow->setError("Select a customer.");
         valid = false;
     }
@@ -213,9 +215,9 @@ void InvoiceEditorDialog::accept()
     try {
         const QByteArray numberBytes = number.toUtf8();
         const QByteArray issueBytes  =
-            m_issueEdit->date().toString("d MMM yyyy").toUtf8();
+            QLocale::c().toString(m_issueEdit->date(), "d MMM yyyy").toUtf8();
         const QByteArray dueBytes    =
-            m_dueEdit->date().toString("d MMM yyyy").toUtf8();
+            QLocale::c().toString(m_dueEdit->date(), "d MMM yyyy").toUtf8();
 
         const InvoiceStatus status =
             static_cast<InvoiceStatus>(m_statusEdit->currentData().toInt());
