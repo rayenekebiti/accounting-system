@@ -1,5 +1,6 @@
 #ifndef SUPPLIER_REPOSITORY_H
 #define SUPPLIER_REPOSITORY_H
+#include <string>   // std::string
 #include "BinaryRecordFile.h"
 #include "../core/Supplier.h"
 #include <vector>

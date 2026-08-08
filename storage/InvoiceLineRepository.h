@@ -1,5 +1,6 @@
 #ifndef INVOICE_LINE_REPOSITORY_H
 #define INVOICE_LINE_REPOSITORY_H
+#include <string>   // std::string
 #include "BinaryRecordFile.h"
 #include "../core/InvoiceLine.h"
 #include <vector>

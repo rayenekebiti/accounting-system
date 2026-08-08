@@ -6,6 +6,7 @@ No inheritance. Flat class.
 */
 #ifndef CATEGORY_H
 #define CATEGORY_H
+#include <string>   // std::string
 #include <iostream>
 #include "constants.h"
 class Category{

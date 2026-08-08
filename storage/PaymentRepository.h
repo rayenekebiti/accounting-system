@@ -1,5 +1,6 @@
 #ifndef PAYMENT_REPOSITORY_H
 #define PAYMENT_REPOSITORY_H
+#include <string>   // std::string
 #include "BinaryRecordFile.h"
 #include "../core/Payment.h"
 #include <vector>

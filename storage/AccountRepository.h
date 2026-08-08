@@ -1,5 +1,7 @@
 #ifndef ACCOUNT_REPOSITORY_H
 #define ACCOUNT_REPOSITORY_H
+#include <string>   // std::string
+#include <utility>   // std::move
 #include "BinaryRecordFile.h"
 #include "../core/CashAccount.h"
 #include "../core/SavingsAccount.h"

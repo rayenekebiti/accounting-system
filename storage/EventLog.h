@@ -1,5 +1,6 @@
 #ifndef STORAGE_EVENT_LOG_H
 #define STORAGE_EVENT_LOG_H
+#include <cstddef>   // std::size_t
 
 #include <cstdint>
 #include <functional>

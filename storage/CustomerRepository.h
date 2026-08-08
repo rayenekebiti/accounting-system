@@ -1,5 +1,6 @@
 #ifndef CUSTOMER_REPOSITORY_H
 #define CUSTOMER_REPOSITORY_H
+#include <string>   // std::string
 #include "BinaryRecordFile.h"
 #include "../core/Customer.h"
 #include <vector>

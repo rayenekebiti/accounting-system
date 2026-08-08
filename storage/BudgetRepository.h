@@ -1,5 +1,6 @@
 #ifndef BUDGET_REPOSITORY_H
 #define BUDGET_REPOSITORY_H
+#include <string>   // std::string
 #include "BinaryRecordFile.h"
 #include "../core/Budget.h"
 #include <vector>

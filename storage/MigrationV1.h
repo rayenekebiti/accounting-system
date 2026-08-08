@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>   // std::min
 // One-shot migration: converts v0 .dat files to v1 format.
 //
 // v0 format (what was written before Phase 1):

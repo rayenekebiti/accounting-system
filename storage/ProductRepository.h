@@ -1,5 +1,6 @@
 #ifndef PRODUCT_REPOSITORY_H
 #define PRODUCT_REPOSITORY_H
+#include <string>   // std::string
 #include "BinaryRecordFile.h"
 #include "../core/Product.h"
 #include <vector>

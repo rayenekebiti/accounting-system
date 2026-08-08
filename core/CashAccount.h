@@ -1,5 +1,6 @@
 #ifndef CASH_ACCOUNT
 #define CASH_ACCOUNT
+#include <string>   // std::string
 #include <iostream>
 #include "../constants.h"
 #include "Account.h"

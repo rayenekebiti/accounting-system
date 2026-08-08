@@ -1,5 +1,6 @@
 #ifndef CATEGORY_REPOSITORY_H
 #define CATEGORY_REPOSITORY_H
+#include <string>   // std::string
 #include "BinaryRecordFile.h"
 #include "../core/Category.h"
 #include <vector>

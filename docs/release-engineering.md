@@ -98,15 +98,17 @@ Two independent signatures, by design:
 
 ```
 bash tools/release.sh [--version X.Y.Z] [--channel stable|rc|beta|development] [--build-id ID]
-                      [--skip-gates a,b,c] [--no-build] [--gates-only] [--package-only] [--out DIR]
+                      [--skip-gates a,b,c] [--no-build] [--gates-only] [--package-only]
+                      [--smoke] [--out DIR]
 ```
 
-Pipeline: **build (stamped) → gates (fail-fast) → stage clean tree → package**. Output lands in
-`dist/release/<version>-<channel>/`:
+Pipeline: **build (stamped) → gates (fail-fast) → stage clean tree → package → [smoke]**. Output
+lands in `dist/release/<version>-<channel>/`:
 
 | Artifact | Purpose |
 |---|---|
 | `Occountant-<v>-Setup.exe` | Inno installer (produced only if `iscc` is present) |
+| `Occountant-Setup.exe` | stable, unversioned alias of the signed installer (for hardcoded links / smoke) |
 | `Occountant-<v>-portable.zip` | portable app (staged tree + `Occountant.portable` marker) |
 | `BuildInfo.json` | embedded provenance (copy) |
 | `RELEASE_NOTES.md` | release notes (copied from repo root if present, else generated) |
@@ -120,7 +122,48 @@ checksums are always produced with only the repo toolchain. The Inno installer i
 are a warning; a failing *gate* is always fatal.
 
 `tools/stage-runtime.sh` assembles the one clean runtime tree (`dist/Occountant`) both the installer
-and the portable ZIP are built over, so they carry byte-for-byte the same payload.
+and the portable ZIP are built over, so they carry byte-for-byte the same payload. It:
+
+- runs `windeployqt` (wired as an `AccountingQuick` POST_BUILD step) + `tools/deploy-deps.sh` to
+  collect Qt's DLLs/plugins **and** the MinGW third-party closure `windeployqt` leaves behind;
+- ships the application's own **`App` QML module** (`App/qmldir`). This is load-bearing:
+  `main_quick.cpp` does `loadFromModule("App","Main")`, and although the QML is embedded in the exe
+  (`prefer :/App/`), the engine still *discovers* the module through the on-disk `App/qmldir`. Omit
+  it and the app exits `-1` with an empty root object. Staging fails loudly if it is missing;
+- enforces an **exclusion guard**: staging aborts if `license_gen*`, `*.key`, `*.pem`, `*.pfx`, or
+  other private-key material ever lands in the shipping tree. (Belt-and-suspenders — the release
+  build already sets `-DACCT_DEV_SIGNING=OFF`, so `license_gen` isn't built and no signing secret is
+  compiled into the binary. See §4 and §12.)
+
+### 5.1 Install smoke test — `tools/smoke-install.ps1`
+
+The end-to-end acceptance of the *shipped artifact*, run the way a customer experiences it:
+
+```
+fresh environment → INSTALL → LAUNCH → create EMPTY COMPANY → ACTIVATE LICENSE → (uninstall preserves data)
+```
+
+```
+powershell -ExecutionPolicy Bypass -File tools/smoke-install.ps1        # auto-discovers dist/*Setup.exe
+bash tools/release.sh --smoke                                            # package, then smoke it
+```
+
+| Phase | Assertion |
+|---|---|
+| **Install** | `Occountant-Setup.exe` installs silently (`/VERYSILENT /DIR=<scratch>`) into an isolated scratch prefix and lays down `AccountingQuick.exe` + its full runtime closure. (Elevated like any Program Files install: silent on an already-elevated CI runner; one UAC prompt on an interactive non-admin box. The shipped installer is unchanged.) |
+| **Launch + empty company** | the *installed* exe runs with a **stripped PATH** (System32 only → proves self-containment), provisions fresh empty books (`totalCount=0`, `*.dat` written) and auto-issues a 30-day **Trial** (read from the health line in `<data>/logs/occountant.log`). |
+| **Activate license** | a vendor **Business** key minted by the developer-only `license_gen` (Ed25519 private key) is installed exactly as *Enter license key* does — the `OCCLIC-` token written to `<config>/license.key` — and on relaunch the installed **release** binary verifies it with only its embedded *public* key and flips Trial→Business. |
+| **Uninstall** | the install tree is removed but the data dir (books) and config dir (license) survive — an uninstall never destroys accounting records. |
+
+**Degradation, matching the rest of the pipeline:** with no Inno Setup on the machine, the test runs
+against the staged tree (the byte-identical payload the installer ships) copied into a scratch
+"install" dir, and says so. If no signing generator/key is available, license activation is reported
+`SKIPPED` (a warning, not a failure) unless `-StrictLicense` is given; pass a pre-minted key with
+`-LicenseKey OCCLIC-…`. A real elevated Program Files install is `-IntoProgramFiles`.
+
+This is the only check that exercises the *staged/installed* tree rather than `build/`; it is what
+caught the `App`-module staging gap above (which `tools/cleanroom.ps1`, defaulting to `build/`,
+could not).
 
 ---
 
@@ -206,7 +249,10 @@ upgrade / uninstall cannot lose books.
 |---|---|
 | installer upgrade preserves data | `tools/installer-test.sh` §1, `tools/upgrade-test.sh` |
 | installer downgrade refusal | `installer-test.sh` §3 + `ACCT_C2TEST` #15 (`appinfo::isDowngrade`) |
-| uninstall preserves data | `installer-test.sh` §2 |
+| uninstall preserves data | `installer-test.sh` §2, `smoke-install.ps1` phase 4 |
+| staged/installed tree is self-contained + launches | `smoke-install.ps1` phase 1–2 (clean PATH) |
+| license activation on the installed binary | `smoke-install.ps1` phase 3 (Trial→Business) |
+| shipping tree excludes `license_gen`/keys | `stage-runtime.sh` exclusion guard |
 | portable mode works | `installer-test.sh` §4 |
 | channel switching | `ACCT_C2TEST` #12 |
 | release manifest verification | `tools/release-test.sh` §3 (SHA256SUMS + metadata) |

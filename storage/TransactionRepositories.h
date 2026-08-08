@@ -1,5 +1,7 @@
 #ifndef TRANSACTION_REPOSITORIES_H
 #define TRANSACTION_REPOSITORIES_H
+#include <string>   // std::string
+#include <utility>   // std::move
 #include "BinaryRecordFile.h"
 #include "../transaction/IncomeTransaction.h"
 #include "../transaction/ExpenseTransaction.h"

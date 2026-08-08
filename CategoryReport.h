@@ -1,4 +1,5 @@
 #pragma once
+#include <string>   // std::string
 #include <unordered_map>
 #include <memory>
 #include <vector>

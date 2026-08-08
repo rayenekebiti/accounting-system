@@ -11,6 +11,7 @@
 // exits 0 if all checks passed, 1 otherwise.
 #ifndef TINY_TEST_H
 #define TINY_TEST_H
+#include <utility>   // std::move
 
 #include <cstdio>
 #include <functional>

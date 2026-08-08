@@ -19,13 +19,15 @@
 # Usage:
 #   bash tools/release.sh [--version X.Y.Z] [--channel stable|rc|beta|development] [--build-id ID]
 #                         [--skip-gates a,b,c] [--no-build] [--gates-only] [--package-only]
-#                         [--out DIR]
+#                         [--smoke] [--out DIR]
+#   --smoke: after packaging, run tools/smoke-install.ps1 (install → launch → empty company →
+#            activate license → uninstall-preserves-data) against the produced installer.
 # Output: dist/release/<version>-<channel>/
 set -u
 cd "$(dirname "$0")/.." || exit 2
 
 VERSION="1.0.0"; CHANNEL="stable"; BUILD_ID=""; SKIP=""; ONLY=""
-DO_BUILD=1; DO_GATES=1; DO_PACKAGE=1; OUTROOT="dist/release"
+DO_BUILD=1; DO_GATES=1; DO_PACKAGE=1; DO_SMOKE=0; OUTROOT="dist/release"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -37,6 +39,7 @@ while [ $# -gt 0 ]; do
     --no-build)     DO_BUILD=0; shift;;
     --gates-only)   DO_PACKAGE=0; shift;;
     --package-only) DO_BUILD=0; DO_GATES=0; shift;;
+    --smoke)        DO_SMOKE=1; shift;;        # after packaging, run the install→activate smoke test
     --out)          OUTROOT="$2"; shift 2;;
     -h|--help)      grep '^#' "$0" | sed 's/^#\{1,\} \{0,1\}//'; exit 0;;
     *) echo "release: unknown arg: $1"; exit 2;;
@@ -169,6 +172,10 @@ fi
 if [ -n "$INSTALLER" ]; then
   echo "  Authenticode signing…"
   bash tools/sign-authenticode.sh "$INSTALLER" || die "Authenticode signing failed"
+  # Publish the SIGNED installer under the stable, unversioned name too, so download links and the
+  # smoke test can hardcode "Occountant-Setup.exe" while archives keep the versioned filename.
+  cp "$INSTALLER" "$OUT/Occountant-Setup.exe"
+  echo "  OK $OUT/Occountant-Setup.exe (stable alias of the signed installer)"
 fi
 
 # 4e) Update manifest (the exact format UpdateManager.check() consumes) over the FINAL payload.
@@ -220,5 +227,19 @@ REL="$OUT/release-manifest.json"
 step "Release complete → $OUT"
 ( cd "$OUT" && for f in *; do [ -f "$f" ] && printf '  %10s  %s\n' "$(stat -c%s "$f")" "$f"; done )
 [ -z "$INSTALLER" ] && echo "  (installer skipped: install Inno Setup 6 and re-run to produce Occountant-$VERSION-Setup.exe)"
+
+# ── 5) SMOKE (optional) — install → launch → empty company → activate license → uninstall ──────────
+if [ "$DO_SMOKE" -eq 1 ]; then
+  step "Post-package smoke test (install → activate → uninstall)"
+  PS="$(command -v powershell 2>/dev/null || command -v pwsh 2>/dev/null || true)"
+  if [ -z "$PS" ]; then
+    echo "  ~ powershell not found — smoke test SKIPPED"
+  else
+    SMOKE_ARGS=(-ExecutionPolicy Bypass -File "$(winw "$PWD/tools/smoke-install.ps1")")
+    [ -n "$INSTALLER" ] && SMOKE_ARGS+=(-Setup "$(winw "$OUTABS/Occountant-Setup.exe")")
+    "$PS" -NoProfile "${SMOKE_ARGS[@]}" || die "smoke test failed"
+  fi
+fi
+
 echo
 echo "release: OK"

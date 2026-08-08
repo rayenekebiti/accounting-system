@@ -1,5 +1,6 @@
 #ifndef EXPENSE_REPOSITORY_H
 #define EXPENSE_REPOSITORY_H
+#include <string>   // std::string
 #include "BinaryRecordFile.h"
 #include "../core/Expense.h"
 #include <vector>

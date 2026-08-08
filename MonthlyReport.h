@@ -1,5 +1,6 @@
 #ifndef MONTHLY_REPORT
 #define MONTHLY_REPORT
+#include <string>   // std::string
 #include <iostream>
 #include <memory>
 #include <vector>

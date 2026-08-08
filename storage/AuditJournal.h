@@ -1,5 +1,6 @@
 #ifndef STORAGE_AUDIT_JOURNAL_H
 #define STORAGE_AUDIT_JOURNAL_H
+#include <cstddef>   // std::size_t
 
 #include <cstdint>
 #include <string>

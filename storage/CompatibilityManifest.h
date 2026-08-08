@@ -1,5 +1,6 @@
 #ifndef STORAGE_COMPATIBILITY_MANIFEST_H
 #define STORAGE_COMPATIBILITY_MANIFEST_H
+#include <cstddef>   // std::size_t
 
 #include <cstdint>
 #include <string>
