@@ -1,5 +1,6 @@
 #ifndef TRANSACTION_H
 #define TRANSACTION_H
+#include <cstddef>   // std::size_t
 #include <cstdint>
 #include "../constants.h"
 
