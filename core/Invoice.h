@@ -1,10 +1,16 @@
 #ifndef CORE_INVOICE_H
 #define CORE_INVOICE_H
 #include <cstddef>
+#include <cstdint>
+#include "Money.h"
+#include "IsoDate.h"
 
 inline constexpr std::size_t INVOICE_RECORD_SIZE   = 96;
 inline constexpr std::size_t INVOICE_NUMBER_LENGTH = 16;
 inline constexpr std::size_t INVOICE_DATE_LENGTH   = 12;
+
+// Byte offset of the isDeleted flag within a serialized Invoice record.
+inline constexpr std::size_t INVOICE_DELETED_OFFSET = 76;
 
 enum InvoiceStatus
 {
@@ -18,30 +24,30 @@ enum InvoiceStatus
 
 struct InvoiceData
 {
-    unsigned short int id;
-    const char*        invoiceNumber;   // e.g. "INV-1024"
-    unsigned short int customerId;
-    const char*        issueDate;       // "DD MMM YYYY"
-    const char*        dueDate;
-    double             subtotal;
-    double             taxAmount;
-    double             total;
-    InvoiceStatus      status;
-    bool               isDeleted;
+    uint32_t      id;
+    const char*   invoiceNumber;   // e.g. "INV-1024"
+    uint32_t      customerId;
+    IsoDate       issueDate;
+    IsoDate       dueDate;
+    Money         subtotal;
+    Money         taxAmount;
+    Money         total;
+    InvoiceStatus status;
+    bool          isDeleted;
 };
 
 class Invoice
 {
-    unsigned short int id;
-    char               invoiceNumber[INVOICE_NUMBER_LENGTH];
-    unsigned short int customerId;
-    char               issueDate[INVOICE_DATE_LENGTH];
-    char               dueDate[INVOICE_DATE_LENGTH];
-    double             subtotal;
-    double             taxAmount;
-    double             total;
-    InvoiceStatus      status;
-    bool               isDeleted;
+    uint32_t      id;
+    char          invoiceNumber[INVOICE_NUMBER_LENGTH];
+    uint32_t      customerId;
+    IsoDate       issueDate;
+    IsoDate       dueDate;
+    Money         subtotal;
+    Money         taxAmount;
+    Money         total;
+    InvoiceStatus status;
+    bool          isDeleted;
 
 public:
     Invoice();
@@ -51,31 +57,30 @@ public:
 
     void serialize(char* buffer) const;
     void deserialize(const char* buffer);
-    void display() const;
 
-    unsigned short int getId() const;
-    void setId(unsigned short int newId);
+    uint32_t getId() const;
+    void setId(uint32_t newId);
 
     const char* getInvoiceNumber() const;
     void setInvoiceNumber(const char* newNumber);
 
-    unsigned short int getCustomerId() const;
-    void setCustomerId(unsigned short int newCustomerId);
+    uint32_t getCustomerId() const;
+    void setCustomerId(uint32_t newCustomerId);
 
-    const char* getIssueDate() const;
-    void setIssueDate(const char* newDate);
+    IsoDate getIssueDate() const;
+    void setIssueDate(IsoDate newDate);
 
-    const char* getDueDate() const;
-    void setDueDate(const char* newDate);
+    IsoDate getDueDate() const;
+    void setDueDate(IsoDate newDate);
 
-    double getSubtotal() const;
-    void setSubtotal(double newSubtotal);
+    Money getSubtotal() const;
+    void setSubtotal(Money newSubtotal);
 
-    double getTaxAmount() const;
-    void setTaxAmount(double newTax);
+    Money getTaxAmount() const;
+    void setTaxAmount(Money newTax);
 
-    double getTotal() const;
-    void setTotal(double newTotal);
+    Money getTotal() const;
+    void setTotal(Money newTotal);
 
     InvoiceStatus getStatus() const;
     void setStatus(InvoiceStatus newStatus);

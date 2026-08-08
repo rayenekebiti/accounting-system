@@ -1,9 +1,9 @@
 #include "transaction.h"
 #include <cstring>
 
-unsigned short int Transaction::getId() const { return id; }
+uint32_t Transaction::getId() const { return id; }
 
-void Transaction::setId(unsigned short int newId) { id = newId; }
+void Transaction::setId(uint32_t newId) { id = newId; }
 
 const char* Transaction::getDescription() const { return description; }
 
@@ -25,9 +25,9 @@ void Transaction::setDate(const char* newDate)
     date[MAX_DATE_LENGTH - 1] = '\0';
 }
 
-unsigned short int Transaction::getCategoryId() const { return categoryId; }
+uint32_t Transaction::getCategoryId() const { return categoryId; }
 
-void Transaction::setCategoryId(unsigned short int newCategoryId) { categoryId = newCategoryId; }
+void Transaction::setCategoryId(uint32_t newCategoryId) { categoryId = newCategoryId; }
 
 bool Transaction::getIsDeleted() const { return isDeleted; }
 

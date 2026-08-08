@@ -11,7 +11,7 @@ class SupplierEditorDialog : public QDialog {
 public:
     explicit SupplierEditorDialog(QWidget* parent = nullptr);
 
-    void setForAdd(unsigned short int nextId);
+    void setForAdd(uint32_t nextId);
     void setForEdit(const Supplier& existing);
 
     const Supplier& supplier() const { return m_result; }
@@ -35,7 +35,7 @@ private:
     FormRow* m_taxRow;
     FormRow* m_balanceRow;
 
-    unsigned short int m_id;
+    uint32_t m_id;
     bool               m_isDeleted;
     Supplier           m_result;
 };

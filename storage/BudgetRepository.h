@@ -5,20 +5,19 @@
 #include <vector>
 #include <cstring>
 
-// Layer 2 — BudgetRepository.
-// Non-polymorphic: one Budget type, already has serialize/deserialize.
+static_assert(BUDGET_DELETED_OFFSET < BUDGET_RECORD_SIZE,
+    "BUDGET_DELETED_OFFSET must be within the record");
+
 class BudgetRepository {
     BinaryRecordFile file_;
 
-    static constexpr int BDG_DELETED_OFFSET = 16;  // unsigned char flag
-
 public:
     explicit BudgetRepository(const std::string& path)
-        : file_(path, BUDGET_RECORD_SIZE) {}
+        : file_(path, BUDGET_RECORD_SIZE, BUDGET_DELETED_OFFSET) {}
 
-    uint16_t save(Budget& budget)
+    uint32_t save(Budget& budget)
     {
-        uint16_t id = static_cast<uint16_t>(file_.count());
+        uint32_t id = static_cast<uint32_t>(file_.count());
         budget.setId(id);
         char buf[BUDGET_RECORD_SIZE];
         budget.serialize(buf);
@@ -32,16 +31,16 @@ public:
         return file_.update(budget.getId(), buf);
     }
 
-    bool remove(uint16_t id)
+    bool remove(uint32_t id)
     {
         char buf[BUDGET_RECORD_SIZE];
         if (!file_.read(id, buf)) return false;
         unsigned char flag = 1u;
-        std::memcpy(buf + BDG_DELETED_OFFSET, &flag, sizeof(flag));
+        std::memcpy(buf + BUDGET_DELETED_OFFSET, &flag, sizeof(flag));
         return file_.update(id, buf);
     }
 
-    Budget load(uint16_t id)
+    Budget load(uint32_t id)
     {
         char buf[BUDGET_RECORD_SIZE];
         Budget b;
@@ -56,9 +55,9 @@ public:
         char buf[BUDGET_RECORD_SIZE];
         const std::size_t n = file_.count();
         for (std::size_t i = 0; i < n; ++i) {
-            if (!file_.read(static_cast<uint16_t>(i), buf)) continue;
+            if (!file_.read(static_cast<uint32_t>(i), buf)) continue;
             unsigned char flag;
-            std::memcpy(&flag, buf + BDG_DELETED_OFFSET, sizeof(flag));
+            std::memcpy(&flag, buf + BUDGET_DELETED_OFFSET, sizeof(flag));
             if (flag) continue;
             Budget b;
             b.deserialize(buf);
@@ -67,8 +66,7 @@ public:
         return result;
     }
 
-    // Returns all budgets for a given category.
-    std::vector<Budget> findByCategory(uint16_t catId)
+    std::vector<Budget> findByCategory(uint32_t catId)
     {
         auto all = loadAll();
         std::vector<Budget> result;

@@ -1,7 +1,6 @@
 #include "Payment.h"
 #include <cstring>
 #include <stdexcept>
-#include <iostream>
 
 static void copyField(char* dest, std::size_t capacity, const char* src)
 {
@@ -22,12 +21,27 @@ static bool isKnownMethod(PaymentMethod m)
            m == PAYMENT_CHECK || m == PAYMENT_CARD;
 }
 
+static void serializeDate(char* slot, IsoDate d)
+{
+    std::memset(slot, 0, PAYMENT_DATE_LENGTH);
+    if (!d.isValid()) return;
+    const std::string s = d.toString();
+    std::memcpy(slot, s.c_str(), s.size());
+}
+
+static IsoDate deserializeDate(const char* slot)
+{
+    char tmp[11] = {};
+    std::memcpy(tmp, slot, 10);
+    auto opt = IsoDate::fromString(tmp);
+    return opt.value_or(IsoDate{});
+}
+
 Payment::Payment()
     : id(0), invoiceId(0), partyId(0), partyType(PARTY_UNKNOWN),
-      amount(0.0), method(PAYMENT_METHOD_UNKNOWN), isDeleted(false)
+      date(), amount(), method(PAYMENT_METHOD_UNKNOWN), isDeleted(false)
 {
     std::memset(paymentNumber, 0, PAYMENT_NUMBER_LENGTH);
-    std::memset(date,          0, PAYMENT_DATE_LENGTH);
 }
 
 Payment::Payment(const PaymentData& info)
@@ -38,7 +52,7 @@ Payment::Payment(const PaymentData& info)
         throw std::invalid_argument("Payment partyType must be CUSTOMER or SUPPLIER");
     if (!isKnownMethod(info.method))
         throw std::invalid_argument("Payment method must be a defined value");
-    if (info.amount <= 0)
+    if (info.amount.cents() <= 0)
         throw std::invalid_argument("Payment amount must be positive");
 
     id = info.id;
@@ -46,7 +60,7 @@ Payment::Payment(const PaymentData& info)
     invoiceId = info.invoiceId;
     partyId   = info.partyId;
     partyType = info.partyType;
-    copyField(date, PAYMENT_DATE_LENGTH, info.date);
+    date      = info.date;
     amount    = info.amount;
     method    = info.method;
     isDeleted = info.isDeleted;
@@ -57,117 +71,91 @@ bool Payment::isValid() const
     return paymentNumber[0] != '\0'
         && isKnownPartyType(partyType)
         && isKnownMethod(method)
-        && amount > 0;
+        && amount.cents() > 0;
 }
 
 // Binary layout (PAYMENT_RECORD_SIZE = 64 bytes):
-//   0..1     id
-//   2..17    paymentNumber  (16)
-//   18..19   invoiceId
-//   20..21   partyId
-//   22..25   partyType      (int)
-//   26..37   date           (12)
-//   38..45   amount         (8)
-//   46..49   method         (int)
-//   50       isDeleted      (1)
-//   51..63   padding        (13)
+//   0..3     id             (uint32_t)       ← widened from 2 bytes in v1
+//   4..19    paymentNumber  (16)
+//   20..23   invoiceId      (uint32_t)       ← widened from 2 bytes
+//   24..27   partyId        (uint32_t)       ← widened from 2 bytes
+//   28..31   partyType      (int32_t)
+//   32..43   date           (12) "YYYY-MM-DD\0\0"
+//   44..51   amount         (8) int64_t cents
+//   52..55   method         (int32_t)
+//   56       isDeleted      (1)              ← PAYMENT_DELETED_OFFSET
+//   57..63   padding        (7)
+static_assert(PAYMENT_DELETED_OFFSET == 56, "keep in sync with serialize layout");
+static_assert(4 + 16 + 4 + 4 + 4 + 12 + 8 + 4 + 1 <= PAYMENT_RECORD_SIZE,
+              "Payment fields exceed PAYMENT_RECORD_SIZE");
+
 void Payment::serialize(char* buffer) const
 {
     if (!isValid())
         throw std::logic_error("Cannot serialize Payment with invalid state");
     std::memset(buffer, 0, PAYMENT_RECORD_SIZE);
-    std::memcpy(buffer + 0,  &id,            sizeof(id));
-    std::memcpy(buffer + 2,  paymentNumber,  PAYMENT_NUMBER_LENGTH);
-    std::memcpy(buffer + 18, &invoiceId,     sizeof(invoiceId));
-    std::memcpy(buffer + 20, &partyId,       sizeof(partyId));
-    int pt = static_cast<int>(partyType);
-    std::memcpy(buffer + 22, &pt,            sizeof(pt));
-    std::memcpy(buffer + 26, date,           PAYMENT_DATE_LENGTH);
-    std::memcpy(buffer + 38, &amount,        sizeof(amount));
-    int m = static_cast<int>(method);
-    std::memcpy(buffer + 46, &m,             sizeof(m));
+    std::memcpy(buffer + 0,  &id,           sizeof(id));
+    std::memcpy(buffer + 4,  paymentNumber, PAYMENT_NUMBER_LENGTH);
+    std::memcpy(buffer + 20, &invoiceId,    sizeof(invoiceId));
+    std::memcpy(buffer + 24, &partyId,      sizeof(partyId));
+    int32_t pt = static_cast<int32_t>(partyType);
+    std::memcpy(buffer + 28, &pt,           sizeof(pt));
+    serializeDate(buffer + 32, date);
+    std::int64_t cents = amount.cents();
+    std::memcpy(buffer + 44, &cents,        sizeof(cents));
+    int32_t m = static_cast<int32_t>(method);
+    std::memcpy(buffer + 52, &m,            sizeof(m));
     unsigned char flag = isDeleted ? 1u : 0u;
-    std::memcpy(buffer + 50, &flag,          sizeof(flag));
+    std::memcpy(buffer + 56, &flag,         sizeof(flag));
 }
 
 void Payment::deserialize(const char* buffer)
 {
-    std::memcpy(&id,            buffer + 0,  sizeof(id));
-    std::memcpy(paymentNumber,  buffer + 2,  PAYMENT_NUMBER_LENGTH);
+    std::memcpy(&id,           buffer + 0,  sizeof(id));
+    std::memcpy(paymentNumber, buffer + 4,  PAYMENT_NUMBER_LENGTH);
     paymentNumber[PAYMENT_NUMBER_LENGTH - 1] = '\0';
-    std::memcpy(&invoiceId,     buffer + 18, sizeof(invoiceId));
-    std::memcpy(&partyId,       buffer + 20, sizeof(partyId));
-    int pt;
-    std::memcpy(&pt,            buffer + 22, sizeof(pt));
+    std::memcpy(&invoiceId,    buffer + 20, sizeof(invoiceId));
+    std::memcpy(&partyId,      buffer + 24, sizeof(partyId));
+    int32_t pt;
+    std::memcpy(&pt,           buffer + 28, sizeof(pt));
     PartyType decodedPt = static_cast<PartyType>(pt);
     partyType = isKnownPartyType(decodedPt) ? decodedPt : PARTY_UNKNOWN;
-    std::memcpy(date,           buffer + 26, PAYMENT_DATE_LENGTH);
-    date[PAYMENT_DATE_LENGTH - 1] = '\0';
-    std::memcpy(&amount,        buffer + 38, sizeof(amount));
-    int m;
-    std::memcpy(&m,             buffer + 46, sizeof(m));
-    PaymentMethod decodedM = static_cast<PaymentMethod>(m);
+    date = deserializeDate(buffer + 32);
+    std::int64_t cents;
+    std::memcpy(&cents,        buffer + 44, sizeof(cents));
+    amount = Money::fromCents(cents);
+    int32_t mv;
+    std::memcpy(&mv,           buffer + 52, sizeof(mv));
+    PaymentMethod decodedM = static_cast<PaymentMethod>(mv);
     method = isKnownMethod(decodedM) ? decodedM : PAYMENT_METHOD_UNKNOWN;
     unsigned char flag;
-    std::memcpy(&flag,          buffer + 50, sizeof(flag));
+    std::memcpy(&flag,         buffer + 56, sizeof(flag));
     isDeleted = (flag != 0);
 }
 
-void Payment::display() const
-{
-    const char* partyStr = (partyType == PARTY_CUSTOMER) ? "Customer" :
-                           (partyType == PARTY_SUPPLIER) ? "Supplier" : "Unknown";
-    const char* methodStr =
-        (method == PAYMENT_CASH)  ? "Cash"  :
-        (method == PAYMENT_BANK)  ? "Bank"  :
-        (method == PAYMENT_CHECK) ? "Check" :
-        (method == PAYMENT_CARD)  ? "Card"  : "Unknown";
+uint32_t Payment::getId() const              { return id; }
+void Payment::setId(uint32_t v)              { id = v; }
 
-    std::cout << "[PAYMENT] ID:" << id
-              << " #" << paymentNumber
-              << " Invoice:" << invoiceId
-              << " Party:" << partyStr << "/" << partyId
-              << " Date:" << date
-              << " Amount:" << amount
-              << " Method:" << methodStr
-              << " Deleted:" << (isDeleted ? "yes" : "no") << "\n";
-}
+const char* Payment::getPaymentNumber() const      { return paymentNumber; }
+void Payment::setPaymentNumber(const char* n)      { copyField(paymentNumber, PAYMENT_NUMBER_LENGTH, n); }
 
-unsigned short int Payment::getId() const                   { return id; }
-void Payment::setId(unsigned short int newId)               { id = newId; }
+uint32_t Payment::getInvoiceId() const       { return invoiceId; }
+void Payment::setInvoiceId(uint32_t v)       { invoiceId = v; }
 
-const char* Payment::getPaymentNumber() const               { return paymentNumber; }
-void Payment::setPaymentNumber(const char* newNumber)       { copyField(paymentNumber, PAYMENT_NUMBER_LENGTH, newNumber); }
+uint32_t Payment::getPartyId() const         { return partyId; }
+void Payment::setPartyId(uint32_t v)         { partyId = v; }
 
-unsigned short int Payment::getInvoiceId() const            { return invoiceId; }
-void Payment::setInvoiceId(unsigned short int newInvoiceId) { invoiceId = newInvoiceId; }
+PartyType Payment::getPartyType() const      { return partyType; }
+void Payment::setPartyType(PartyType t)      { if (isKnownPartyType(t)) partyType = t; }
 
-unsigned short int Payment::getPartyId() const              { return partyId; }
-void Payment::setPartyId(unsigned short int newPartyId)     { partyId = newPartyId; }
+IsoDate Payment::getDate() const             { return date; }
+void Payment::setDate(IsoDate d)             { date = d; }
 
-PartyType Payment::getPartyType() const                     { return partyType; }
-void Payment::setPartyType(PartyType newType)
-{
-    if (!isKnownPartyType(newType)) return;
-    partyType = newType;
-}
+Money Payment::getAmount() const             { return amount; }
+void Payment::setAmount(Money m)             { if (m.cents() > 0) amount = m; }
 
-const char* Payment::getDate() const                        { return date; }
-void Payment::setDate(const char* newDate)                  { copyField(date, PAYMENT_DATE_LENGTH, newDate); }
+PaymentMethod Payment::getMethod() const     { return method; }
+void Payment::setMethod(PaymentMethod m)     { if (isKnownMethod(m)) method = m; }
 
-double Payment::getAmount() const                           { return amount; }
-void Payment::setAmount(double newAmount)
-{
-    if (newAmount <= 0) return;
-    amount = newAmount;
-}
-
-PaymentMethod Payment::getMethod() const                    { return method; }
-void Payment::setMethod(PaymentMethod newMethod)
-{
-    if (!isKnownMethod(newMethod)) return;
-    method = newMethod;
-}
-
-bool Payment::getIsDeleted() const                          { return isDeleted; }
-void Payment::setIsDeleted(bool newIsDeleted)               { isDeleted = newIsDeleted; }
+bool Payment::getIsDeleted() const           { return isDeleted; }
+void Payment::setIsDeleted(bool v)           { isDeleted = v; }

@@ -72,7 +72,7 @@ QVariant CustomerTableModel::data(const QModelIndex& idx, int role) const
         case ColEmail:     return QString::fromUtf8(c.getEmail());
         case ColPhone:     return QString::fromUtf8(c.getPhone());
         case ColTaxNumber: return QString::fromUtf8(c.getTaxNumber());
-        case ColBalance:   return QString::asprintf("$%.2f", c.getBalance());
+        case ColBalance:   return QString::asprintf("$%.2f", c.getBalance().toDouble());
         case ColStatus:    return c.getIsDeleted() ? QStringLiteral("Inactive")
                                                    : QStringLiteral("Active");
     }

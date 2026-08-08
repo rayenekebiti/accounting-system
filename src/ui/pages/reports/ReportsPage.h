@@ -1,5 +1,9 @@
 #pragma once
 #include "pages/base/Page.h"
+#include <QFuture>
+#include <QFutureWatcher>
+#include <QList>
+#include <QStringList>
 
 class QListWidget;
 class QSplitter;
@@ -12,6 +16,14 @@ class QDateEdit;
 class QLabel;
 class QStandardItemModel;
 
+struct ReportOutput {
+    QStringList        headers;
+    QList<QStringList> rows;
+    QList<int>         moneyCols;
+    int                statusCol = -1;
+    QString            error;
+};
+
 class ReportsPage : public Page {
     Q_OBJECT
 public:
@@ -23,36 +35,25 @@ public:
 private slots:
     void onReportSelected(int row);
     void onRunClicked();
+    void onReportFinished();
 
 private:
     void   buildCatalog();
     void   buildParameterPanel(QWidget* parent);
     QFrame* makeChartPlaceholder();
 
-    void runAgedReceivables();
-    void runCustomerStatement();
-    void runAgedPayables();
-    void runSupplierStatement();
-    void runSalesSummary();
-    void runInvoiceRegister();
-    void runTaxSummary();
-    void runVATReturn();
-    void runProfitAndLoss();
-    void runCashFlow();
-
     QString             currentReportName() const;
-    QStandardItemModel* beginReport(const QStringList& headers);
-    void                endReport(QStandardItemModel* model,
-                                  const QList<int>& moneyCols = {},
-                                  int statusCol = -1);
+    void                endReport(const ReportOutput& out);
 
     QListWidget*        m_catalog;
     QStackedWidget*     m_results;
     DataTableView*      m_resultTable;
     QComboBox*          m_groupCombo;
     QPushButton*        m_runBtn;
+    QPushButton*        m_exportBtn   = nullptr;
     QDateEdit*          m_fromDate;
     QDateEdit*          m_toDate;
     QLabel*             m_reportLabel;
     QStandardItemModel* m_reportModel = nullptr;
+    QFutureWatcher<ReportOutput>* m_watcher = nullptr;
 };

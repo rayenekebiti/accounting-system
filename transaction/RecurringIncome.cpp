@@ -62,15 +62,15 @@ void RecurringIncome::display() const
 void RecurringIncome::serialize(char* buffer) const
 {
     IncomeTransaction::serialize(buffer);
-    std::memcpy(buffer + 93, &frequencyDays, sizeof(frequencyDays));
-    std::memcpy(buffer + 97, endDate,        MAX_END_DATE_LENGTH);
+    std::memcpy(buffer + 97,  &frequencyDays, sizeof(frequencyDays));
+    std::memcpy(buffer + 101, endDate,        MAX_END_DATE_LENGTH);
 }
 
 void RecurringIncome::deserialize(const char* buffer)
 {
     IncomeTransaction::deserialize(buffer);
-    std::memcpy(&frequencyDays, buffer + 93, sizeof(frequencyDays));
+    std::memcpy(&frequencyDays, buffer + 97,  sizeof(frequencyDays));
     if (frequencyDays <= 0) frequencyDays = 1;   // clamp corrupt/zero values
-    std::memcpy(endDate,        buffer + 97, MAX_END_DATE_LENGTH);
+    std::memcpy(endDate,        buffer + 101, MAX_END_DATE_LENGTH);
     endDate[MAX_END_DATE_LENGTH - 1] = '\0';
 }

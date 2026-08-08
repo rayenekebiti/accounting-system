@@ -63,7 +63,7 @@ QVariant SupplierTableModel::data(const QModelIndex& idx, int role) const
         case ColEmail:     return QString::fromUtf8(s.getEmail());
         case ColPhone:     return QString::fromUtf8(s.getPhone());
         case ColTaxNumber: return QString::fromUtf8(s.getTaxNumber());
-        case ColBalance:   return QString::asprintf("$%.2f", s.getBalance());
+        case ColBalance:   return QString::asprintf("$%.2f", s.getBalance().toDouble());
         case ColStatus:    return s.getIsDeleted() ? QStringLiteral("Inactive")
                                                    : QStringLiteral("Active");
     }

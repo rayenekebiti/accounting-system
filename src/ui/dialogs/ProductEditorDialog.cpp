@@ -77,7 +77,7 @@ void ProductEditorDialog::buildUi()
     root->addLayout(btnRow);
 }
 
-void ProductEditorDialog::setForAdd(unsigned short int nextId)
+void ProductEditorDialog::setForAdd(uint32_t nextId)
 {
     m_id = nextId;
     m_isDeleted = false;
@@ -98,8 +98,8 @@ void ProductEditorDialog::setForEdit(const Product& existing)
     m_codeEdit->setText(QString::fromUtf8(existing.getCode()));
     m_nameEdit->setText(QString::fromUtf8(existing.getName()));
     m_descEdit->setText(QString::fromUtf8(existing.getDescription()));
-    m_priceEdit->setValue(existing.getPrice());
-    m_costEdit->setValue(existing.getCost());
+    m_priceEdit->setValue(existing.getPrice().toDouble());
+    m_costEdit->setValue(existing.getCost().toDouble());
     m_stockEdit->setValue(existing.getStock());
     clearErrors();
     setWindowTitle(QString("Edit Product #%1").arg(m_id));
@@ -138,8 +138,8 @@ void ProductEditorDialog::accept()
             codeBytes.constData(),
             nameBytes.constData(),
             descBytes.constData(),
-            m_priceEdit->value(),
-            m_costEdit->value(),
+            Money::fromDouble(m_priceEdit->value()),
+            Money::fromDouble(m_costEdit->value()),
             m_stockEdit->value(),
             m_isDeleted
         });

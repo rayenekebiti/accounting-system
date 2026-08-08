@@ -1,4 +1,16 @@
 .claude/
 build/
+dist/
+.cache/
 *.dat
+*.pptx
 Videos/
+
+# Runtime / test-scratch data (never source): the `all/` scratch data dir produced by the
+# headless test runners, and the local licensing/audit files an Occountant instance writes.
+all/
+license.key
+license.cache
+audit.log
+audit.cursor
+*.eventlog

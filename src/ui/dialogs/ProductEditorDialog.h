@@ -12,7 +12,7 @@ class ProductEditorDialog : public QDialog {
 public:
     explicit ProductEditorDialog(QWidget* parent = nullptr);
 
-    void setForAdd(unsigned short int nextId);
+    void setForAdd(uint32_t nextId);
     void setForEdit(const Product& existing);
 
     const Product& product() const { return m_result; }
@@ -38,7 +38,7 @@ private:
     FormRow* m_costRow;
     FormRow* m_stockRow;
 
-    unsigned short int m_id;
+    uint32_t m_id;
     bool               m_isDeleted;
     Product            m_result;
 };

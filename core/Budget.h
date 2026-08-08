@@ -1,25 +1,29 @@
 #ifndef CORE_BUDGET_H
 #define CORE_BUDGET_H
+#include <cstdint>
 #include "../constants.h"
+
+// Byte offset of the isDeleted flag within a serialized Budget record.
+inline constexpr std::size_t BUDGET_DELETED_OFFSET = 20;
 
 struct BudgetData
 {
-    unsigned short int id;
-    unsigned short int categoryId;
-    double             monthlyLimit;
-    unsigned short int month;       // 1..12
-    unsigned short int year;
-    bool               isDeleted;
+    uint32_t id;
+    uint32_t categoryId;
+    double   monthlyLimit;
+    uint16_t month;       // 1..12
+    uint16_t year;
+    bool     isDeleted;
 };
 
 class Budget
 {
-    unsigned short int id;
-    unsigned short int categoryId;
-    double             monthlyLimit;
-    unsigned short int month;
-    unsigned short int year;
-    bool               isDeleted;
+    uint32_t id;
+    uint32_t categoryId;
+    double   monthlyLimit;
+    uint16_t month;
+    uint16_t year;
+    bool     isDeleted;
 
 public:
     Budget();                                  // for FileManager deserialize
@@ -29,25 +33,24 @@ public:
 
     void serialize(char* buffer) const;        // throws std::logic_error if !isValid()
     void deserialize(const char* buffer);
-    void display() const;
 
     bool   isExceeded(double currentSpend) const;
     double getRemainingBudget(double currentSpend) const;
 
-    unsigned short int getId() const;
-    void setId(unsigned short int newId);
+    uint32_t getId() const;
+    void setId(uint32_t newId);
 
-    unsigned short int getCategoryId() const;
-    void setCategoryId(unsigned short int newCategoryId);
+    uint32_t getCategoryId() const;
+    void setCategoryId(uint32_t newCategoryId);
 
     double getMonthlyLimit() const;
     void setMonthlyLimit(double newLimit);
 
-    unsigned short int getMonth() const;
-    void setMonth(unsigned short int newMonth);
+    uint16_t getMonth() const;
+    void setMonth(uint16_t newMonth);
 
-    unsigned short int getYear() const;
-    void setYear(unsigned short int newYear);
+    uint16_t getYear() const;
+    void setYear(uint16_t newYear);
 
     bool getIsDeleted() const;
     void setIsDeleted(bool newIsDeleted);

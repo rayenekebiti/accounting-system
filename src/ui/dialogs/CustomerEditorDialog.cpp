@@ -66,7 +66,7 @@ void CustomerEditorDialog::buildUi()
     root->addLayout(btnRow);
 }
 
-void CustomerEditorDialog::setForAdd(unsigned short int nextId)
+void CustomerEditorDialog::setForAdd(uint32_t nextId)
 {
     m_id = nextId;
     m_isDeleted = false;
@@ -87,7 +87,7 @@ void CustomerEditorDialog::setForEdit(const Customer& existing)
     m_emailEdit->setText(QString::fromUtf8(existing.getEmail()));
     m_phoneEdit->setText(QString::fromUtf8(existing.getPhone()));
     m_taxEdit->setText(QString::fromUtf8(existing.getTaxNumber()));
-    m_balanceEdit->setValue(existing.getBalance());
+    m_balanceEdit->setValue(existing.getBalance().toDouble());
     clearErrors();
     setWindowTitle(QString("Edit Customer #%1").arg(m_id));
 }
@@ -134,7 +134,7 @@ void CustomerEditorDialog::accept()
             emailBytes.constData(),
             phoneBytes.constData(),
             taxBytes.constData(),
-            m_balanceEdit->value(),
+            Money::fromDouble(m_balanceEdit->value()),
             m_isDeleted
         });
     } catch (const std::exception& e) {

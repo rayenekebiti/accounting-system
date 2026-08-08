@@ -9,15 +9,14 @@
 #include <vector>
 #include <cstring>
 
-// Layer 2 — TransactionRepository.
-// Translates between typed Transaction objects and raw byte records.
-// All polymorphism is resolved here via makeFromBuffer().
+static_assert(TRANSACTION_DELETED_OFFSET < TRANSACTION_RECORD_SIZE,
+    "TRANSACTION_DELETED_OFFSET must be within the record");
+
+// Polymorphic: resolves TransactionType via makeFromBuffer().
 class TransactionRepository {
     BinaryRecordFile file_;
 
-    // Offsets within a TRANSACTION_RECORD_SIZE buffer (see IncomeTransaction::serialize).
-    static constexpr int TX_TYPE_OFFSET    = 88;  // int (TransactionType enum)
-    static constexpr int TX_DELETED_OFFSET = 92;  // unsigned char flag
+    static constexpr std::size_t TX_TYPE_OFFSET = 92;  // int (TransactionType enum)
 
     std::unique_ptr<Transaction> makeFromBuffer(const char* buf)
     {
@@ -39,19 +38,17 @@ class TransactionRepository {
 
 public:
     explicit TransactionRepository(const std::string& path)
-        : file_(path, TRANSACTION_RECORD_SIZE) {}
+        : file_(path, TRANSACTION_RECORD_SIZE, TRANSACTION_DELETED_OFFSET) {}
 
-    // Assigns an id to tx, serializes, appends. Returns the assigned id.
-    uint16_t save(Transaction& tx)
+    uint32_t save(Transaction& tx)
     {
-        uint16_t id = static_cast<uint16_t>(file_.count());
+        uint32_t id = static_cast<uint32_t>(file_.count());
         tx.setId(id);
         char buf[TRANSACTION_RECORD_SIZE];
         tx.serialize(buf);
         return file_.append(buf);
     }
 
-    // Overwrites the record for tx.getId() with the current state of tx.
     bool update(const Transaction& tx)
     {
         char buf[TRANSACTION_RECORD_SIZE];
@@ -59,37 +56,34 @@ public:
         return file_.update(tx.getId(), buf);
     }
 
-    // Soft-delete: sets the isDeleted flag byte in the on-disk record.
-    bool remove(uint16_t id)
+    bool remove(uint32_t id)
     {
         char buf[TRANSACTION_RECORD_SIZE];
         if (!file_.read(id, buf)) return false;
         unsigned char flag = 1u;
-        std::memcpy(buf + TX_DELETED_OFFSET, &flag, sizeof(flag));
+        std::memcpy(buf + TRANSACTION_DELETED_OFFSET, &flag, sizeof(flag));
         return file_.update(id, buf);
     }
 
-    // Returns nullptr if id is out of range or the record is soft-deleted.
-    std::unique_ptr<Transaction> load(uint16_t id)
+    std::unique_ptr<Transaction> load(uint32_t id)
     {
         char buf[TRANSACTION_RECORD_SIZE];
         if (!file_.read(id, buf)) return nullptr;
         unsigned char flag;
-        std::memcpy(&flag, buf + TX_DELETED_OFFSET, sizeof(flag));
+        std::memcpy(&flag, buf + TRANSACTION_DELETED_OFFSET, sizeof(flag));
         if (flag) return nullptr;
         return makeFromBuffer(buf);
     }
 
-    // Returns all non-deleted records.
     std::vector<std::unique_ptr<Transaction>> loadAll()
     {
         std::vector<std::unique_ptr<Transaction>> result;
         char buf[TRANSACTION_RECORD_SIZE];
         const std::size_t n = file_.count();
         for (std::size_t i = 0; i < n; ++i) {
-            if (!file_.read(static_cast<uint16_t>(i), buf)) continue;
+            if (!file_.read(static_cast<uint32_t>(i), buf)) continue;
             unsigned char flag;
-            std::memcpy(&flag, buf + TX_DELETED_OFFSET, sizeof(flag));
+            std::memcpy(&flag, buf + TRANSACTION_DELETED_OFFSET, sizeof(flag));
             if (flag) continue;
             auto tx = makeFromBuffer(buf);
             if (tx) result.push_back(std::move(tx));
@@ -97,7 +91,7 @@ public:
         return result;
     }
 
-    std::vector<std::unique_ptr<Transaction>> findByCategory(uint16_t catId)
+    std::vector<std::unique_ptr<Transaction>> findByCategory(uint32_t catId)
     {
         auto all = loadAll();
         std::vector<std::unique_ptr<Transaction>> result;

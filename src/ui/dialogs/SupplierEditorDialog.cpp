@@ -65,7 +65,7 @@ void SupplierEditorDialog::buildUi()
     root->addLayout(btnRow);
 }
 
-void SupplierEditorDialog::setForAdd(unsigned short int nextId)
+void SupplierEditorDialog::setForAdd(uint32_t nextId)
 {
     m_id = nextId;
     m_isDeleted = false;
@@ -86,7 +86,7 @@ void SupplierEditorDialog::setForEdit(const Supplier& existing)
     m_emailEdit->setText(QString::fromUtf8(existing.getEmail()));
     m_phoneEdit->setText(QString::fromUtf8(existing.getPhone()));
     m_taxEdit->setText(QString::fromUtf8(existing.getTaxNumber()));
-    m_balanceEdit->setValue(existing.getBalance());
+    m_balanceEdit->setValue(existing.getBalance().toDouble());
     clearErrors();
     setWindowTitle(QString("Edit Supplier #%1").arg(m_id));
 }
@@ -133,7 +133,7 @@ void SupplierEditorDialog::accept()
             emailBytes.constData(),
             phoneBytes.constData(),
             taxBytes.constData(),
-            m_balanceEdit->value(),
+            Money::fromDouble(m_balanceEdit->value()),
             m_isDeleted
         });
     } catch (const std::exception& e) {

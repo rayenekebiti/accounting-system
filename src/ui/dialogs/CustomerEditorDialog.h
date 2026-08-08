@@ -12,7 +12,7 @@ public:
     explicit CustomerEditorDialog(QWidget* parent = nullptr);
 
     // Add-mode: clears fields and sets the id that would be assigned on save.
-    void setForAdd(unsigned short int nextId);
+    void setForAdd(uint32_t nextId);
 
     // Edit-mode: pre-populates fields from the given customer.
     void setForEdit(const Customer& existing);
@@ -40,7 +40,7 @@ private:
     FormRow* m_taxRow;
     FormRow* m_balanceRow;
 
-    unsigned short int m_id;
+    uint32_t m_id;
     bool               m_isDeleted;
     Customer           m_result;
 };

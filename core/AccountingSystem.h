@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <optional>
 #include <cstddef>
+#include <cstdint>
 
 // In-memory coordinator. Holds collections of domain records and exposes
 // query/mutation operations. Persistence is delegated to the storage layer
@@ -18,22 +19,22 @@
 class AccountingSystem
 {
     std::vector<Category> categories;
-    std::unordered_map<unsigned short int, std::size_t> categoryIndex;
+    std::unordered_map<uint32_t, std::size_t> categoryIndex;
 
     std::vector<Budget> budgets;
-    std::unordered_map<unsigned short int, std::size_t> budgetIndex;
+    std::unordered_map<uint32_t, std::size_t> budgetIndex;
 
 public:
     // Categories — returns false on invalid record or duplicate id
     bool addCategory(const Category& c);
-    bool removeCategory(unsigned short int id);                   // soft delete
-    std::optional<Category> findCategory(unsigned short int id) const;
+    bool removeCategory(uint32_t id);                   // soft delete
+    std::optional<Category> findCategory(uint32_t id) const;
     const std::vector<Category>& getCategories() const;
 
     // Budgets
     bool addBudget(const Budget& b);
-    bool removeBudget(unsigned short int id);                     // soft delete
-    std::optional<Budget> findBudget(unsigned short int id) const;
+    bool removeBudget(uint32_t id);                     // soft delete
+    std::optional<Budget> findBudget(uint32_t id) const;
     const std::vector<Budget>& getBudgets() const;
 
     // Bulk load from FileManager output. Silently drops invalid records

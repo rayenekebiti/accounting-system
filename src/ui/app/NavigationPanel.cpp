@@ -36,7 +36,7 @@ protected:
         p.setFont(f);
 
         p.setPen(Qt::NoPen);
-        p.setBrush(QColor("#C83434"));
+        p.setBrush(QColor("#E5534B"));
         p.drawRoundedRect(QRect(0, 0, width(), height()), kH / 2, kH / 2);
         p.setPen(Qt::white);
         p.drawText(QRect(0, 0, width(), height()), Qt::AlignCenter, txt);
@@ -46,40 +46,44 @@ private:
 };
 
 // Geometry constants used by both makeNavButton/setBadge and applyCollapsedState
-static constexpr int kNavPanelExpanded = 210;
-static constexpr int kNavPanelCollapsed = 48;
-static constexpr int kNavBtnH = 36;
+static constexpr int kNavPanelExpanded = 220;
+static constexpr int kNavPanelCollapsed = 56;
+static constexpr int kNavBtnH = 38;
+static constexpr int kNavSideMargin = 8;   // horizontal inset of nav buttons
 
 static QPoint badgePosFor(bool collapsed)
 {
+    // Positions are relative to the button, which is inset by kNavSideMargin
+    // on each side of the panel.
     if (collapsed) {
         // Top-right corner of the icon-only button
-        return QPoint(kNavPanelCollapsed - NavBadge::kW - 2, 2);
+        const int btnW = kNavPanelCollapsed - 2 * kNavSideMargin;
+        return QPoint(btnW - NavBadge::kW + 2, 2);
     }
     // Right side, vertically centered on the row
-    return QPoint(kNavPanelExpanded - NavBadge::kW - 12,
+    const int btnW = kNavPanelExpanded - 2 * kNavSideMargin;
+    return QPoint(btnW - NavBadge::kW - 10,
                   (kNavBtnH - NavBadge::kH) / 2);
 }
 
-// ── Nav button stylesheet ─────────────────────────────────────────────────────
+// ── Nav button stylesheet — rounded pill rows ────────────────────────────────
 static const QString NAV_BTN_STYLE = R"(
 QToolButton {
     background: transparent;
     border: none;
-    border-left: 2px solid transparent;
-    color: #6B7485;
+    border-radius: 7px;
+    color: #98A2B3;
     text-align: left;
-    padding: 0px 14px;
+    padding: 0px 12px;
     font-size: 13px;
 }
 QToolButton:hover {
-    background: rgba(196,203,216,0.06);
-    color: #C4CBD8;
+    background: rgba(231,234,240,0.07);
+    color: #E7EAF0;
 }
 QToolButton[active="true"] {
-    background: rgba(26,111,224,0.10);
-    border-left-color: #1A6FE0;
-    color: #C4CBD8;
+    background: rgba(76,141,255,0.18);
+    color: #FFFFFF;
     font-weight: 600;
 }
 )";
@@ -88,7 +92,7 @@ QToolButton[active="true"] {
 NavigationPanel::NavigationPanel(QWidget* parent) : QWidget(parent)
 {
     setObjectName("navPanel");
-    setFixedWidth(210);
+    setFixedWidth(kNavPanelExpanded);
 
     buildEntries();
 

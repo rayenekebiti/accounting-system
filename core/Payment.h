@@ -1,10 +1,16 @@
 #ifndef CORE_PAYMENT_H
 #define CORE_PAYMENT_H
 #include <cstddef>
+#include <cstdint>
+#include "Money.h"
+#include "IsoDate.h"
 
 inline constexpr std::size_t PAYMENT_RECORD_SIZE   = 64;
 inline constexpr std::size_t PAYMENT_NUMBER_LENGTH = 16;
 inline constexpr std::size_t PAYMENT_DATE_LENGTH   = 12;
+
+// Byte offset of the isDeleted flag within a serialized Payment record.
+inline constexpr std::size_t PAYMENT_DELETED_OFFSET = 56;
 
 enum PartyType
 {
@@ -24,28 +30,28 @@ enum PaymentMethod
 
 struct PaymentData
 {
-    unsigned short int id;
-    const char*        paymentNumber;     // e.g. "PMT-0042"
-    unsigned short int invoiceId;         // 0 if not tied to an invoice
-    unsigned short int partyId;           // customer or supplier id
-    PartyType          partyType;
-    const char*        date;
-    double             amount;
-    PaymentMethod      method;
-    bool               isDeleted;
+    uint32_t      id;
+    const char*   paymentNumber;     // e.g. "PMT-0042"
+    uint32_t      invoiceId;         // 0 if not tied to an invoice
+    uint32_t      partyId;           // customer or supplier id
+    PartyType     partyType;
+    IsoDate       date;
+    Money         amount;
+    PaymentMethod method;
+    bool          isDeleted;
 };
 
 class Payment
 {
-    unsigned short int id;
-    char               paymentNumber[PAYMENT_NUMBER_LENGTH];
-    unsigned short int invoiceId;
-    unsigned short int partyId;
-    PartyType          partyType;
-    char               date[PAYMENT_DATE_LENGTH];
-    double             amount;
-    PaymentMethod      method;
-    bool               isDeleted;
+    uint32_t      id;
+    char          paymentNumber[PAYMENT_NUMBER_LENGTH];
+    uint32_t      invoiceId;
+    uint32_t      partyId;
+    PartyType     partyType;
+    IsoDate       date;
+    Money         amount;
+    PaymentMethod method;
+    bool          isDeleted;
 
 public:
     Payment();
@@ -55,28 +61,27 @@ public:
 
     void serialize(char* buffer) const;
     void deserialize(const char* buffer);
-    void display() const;
 
-    unsigned short int getId() const;
-    void setId(unsigned short int newId);
+    uint32_t getId() const;
+    void setId(uint32_t newId);
 
     const char* getPaymentNumber() const;
     void setPaymentNumber(const char* newNumber);
 
-    unsigned short int getInvoiceId() const;
-    void setInvoiceId(unsigned short int newInvoiceId);
+    uint32_t getInvoiceId() const;
+    void setInvoiceId(uint32_t newInvoiceId);
 
-    unsigned short int getPartyId() const;
-    void setPartyId(unsigned short int newPartyId);
+    uint32_t getPartyId() const;
+    void setPartyId(uint32_t newPartyId);
 
     PartyType getPartyType() const;
     void setPartyType(PartyType newType);
 
-    const char* getDate() const;
-    void setDate(const char* newDate);
+    IsoDate getDate() const;
+    void setDate(IsoDate newDate);
 
-    double getAmount() const;
-    void setAmount(double newAmount);
+    Money getAmount() const;
+    void setAmount(Money newAmount);
 
     PaymentMethod getMethod() const;
     void setMethod(PaymentMethod newMethod);

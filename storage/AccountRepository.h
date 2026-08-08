@@ -1,21 +1,21 @@
 #ifndef ACCOUNT_REPOSITORY_H
 #define ACCOUNT_REPOSITORY_H
 #include "BinaryRecordFile.h"
-#include "../CashAccount.h"
-#include "../SavingsAccount.h"
-#include "../CheckingAccount.h"
+#include "../core/CashAccount.h"
+#include "../core/SavingsAccount.h"
+#include "../core/CheckingAccount.h"
 #include <memory>
 #include <vector>
 #include <cstring>
 
-// Layer 2 — AccountRepository.
+static_assert(ACCOUNT_DELETED_OFFSET < ACCOUNT_RECORD_SIZE,
+    "ACCOUNT_DELETED_OFFSET must be within the record");
+
 // Polymorphic: reads the AccountType byte to construct the right concrete subclass.
 class AccountRepository {
     BinaryRecordFile file_;
 
-    // Offsets within an ACCOUNT_RECORD_SIZE buffer (see Account::serialize).
-    static constexpr int ACCT_TYPE_OFFSET    = 54;  // int (AccountType enum)
-    static constexpr int ACCT_DELETED_OFFSET = 58;  // unsigned char flag
+    static constexpr std::size_t ACCT_TYPE_OFFSET = 56;  // int (AccountType enum)
 
     std::unique_ptr<Account> makeFromBuffer(const char* buf)
     {
@@ -36,12 +36,11 @@ class AccountRepository {
 
 public:
     explicit AccountRepository(const std::string& path)
-        : file_(path, ACCOUNT_RECORD_SIZE) {}
+        : file_(path, ACCOUNT_RECORD_SIZE, ACCOUNT_DELETED_OFFSET) {}
 
-    // Assigns an id to acc, serializes, appends. Returns the assigned id.
-    uint16_t save(Account& acc)
+    uint32_t save(Account& acc)
     {
-        uint16_t id = static_cast<uint16_t>(file_.count());
+        uint32_t id = static_cast<uint32_t>(file_.count());
         acc.setId(id);
         char buf[ACCOUNT_RECORD_SIZE];
         acc.serialize(buf);
@@ -55,21 +54,21 @@ public:
         return file_.update(acc.getId(), buf);
     }
 
-    bool remove(uint16_t id)
+    bool remove(uint32_t id)
     {
         char buf[ACCOUNT_RECORD_SIZE];
         if (!file_.read(id, buf)) return false;
         unsigned char flag = 1u;
-        std::memcpy(buf + ACCT_DELETED_OFFSET, &flag, sizeof(flag));
+        std::memcpy(buf + ACCOUNT_DELETED_OFFSET, &flag, sizeof(flag));
         return file_.update(id, buf);
     }
 
-    std::unique_ptr<Account> load(uint16_t id)
+    std::unique_ptr<Account> load(uint32_t id)
     {
         char buf[ACCOUNT_RECORD_SIZE];
         if (!file_.read(id, buf)) return nullptr;
         unsigned char flag;
-        std::memcpy(&flag, buf + ACCT_DELETED_OFFSET, sizeof(flag));
+        std::memcpy(&flag, buf + ACCOUNT_DELETED_OFFSET, sizeof(flag));
         if (flag) return nullptr;
         return makeFromBuffer(buf);
     }
@@ -80,9 +79,9 @@ public:
         char buf[ACCOUNT_RECORD_SIZE];
         const std::size_t n = file_.count();
         for (std::size_t i = 0; i < n; ++i) {
-            if (!file_.read(static_cast<uint16_t>(i), buf)) continue;
+            if (!file_.read(static_cast<uint32_t>(i), buf)) continue;
             unsigned char flag;
-            std::memcpy(&flag, buf + ACCT_DELETED_OFFSET, sizeof(flag));
+            std::memcpy(&flag, buf + ACCOUNT_DELETED_OFFSET, sizeof(flag));
             if (flag) continue;
             auto acc = makeFromBuffer(buf);
             if (acc) result.push_back(std::move(acc));

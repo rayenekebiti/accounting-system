@@ -14,7 +14,7 @@ class PaymentEditorDialog : public QDialog {
 public:
     explicit PaymentEditorDialog(QWidget* parent = nullptr);
 
-    void setForAdd(unsigned short int nextId, const QString& suggestedNumber = {});
+    void setForAdd(uint32_t nextId, const QString& suggestedNumber = {});
     void setForEdit(const Payment& existing);
 
     const Payment& payment() const { return m_result; }
@@ -46,7 +46,7 @@ private:
     FormRow* m_amountRow;
     FormRow* m_methodRow;
 
-    unsigned short int m_id;
+    uint32_t m_id;
     bool               m_isDeleted;
     Payment            m_result;
 };

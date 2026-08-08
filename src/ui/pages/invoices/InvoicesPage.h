@@ -28,7 +28,7 @@ private:
     void buildActions();
     void buildStatusTabs();
     void loadFromStorage();
-    unsigned short int computeNextId() const;
+    uint32_t computeNextId() const;
     QString            suggestNextNumber() const;
 
     QTabBar*           m_statusTabs;

@@ -69,9 +69,9 @@ QVariant InvoiceTableModel::data(const QModelIndex& idx, int role) const
     switch (idx.column()) {
         case ColNumber:     return QString::fromUtf8(inv.getInvoiceNumber());
         case ColCustomerId: return inv.getCustomerId();
-        case ColIssueDate:  return QString::fromUtf8(inv.getIssueDate());
-        case ColDueDate:    return QString::fromUtf8(inv.getDueDate());
-        case ColTotal:      return QString::asprintf("$%.2f", inv.getTotal());
+        case ColIssueDate:  return QString::fromStdString(inv.getIssueDate().toString());
+        case ColDueDate:    return QString::fromStdString(inv.getDueDate().toString());
+        case ColTotal:      return QString::asprintf("$%.2f", inv.getTotal().toDouble());
         case ColStatus:     return QString::fromUtf8(statusName(inv.getStatus()));
     }
     return {};

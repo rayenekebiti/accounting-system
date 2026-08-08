@@ -7,17 +7,41 @@
 
 class CustomerRepository {
     BinaryRecordFile file_;
-    static constexpr int CUST_DELETED_OFFSET = 122;
-    static_assert(CUST_DELETED_OFFSET == 122,
-        "CUST_DELETED_OFFSET must match the isDeleted byte offset in Customer::serialize()");
+
+    static_assert(CUSTOMER_DELETED_OFFSET < CUSTOMER_RECORD_SIZE,
+        "CUSTOMER_DELETED_OFFSET must be within the record");
 
 public:
     explicit CustomerRepository(const std::string& path)
-        : file_(path, CUSTOMER_RECORD_SIZE) {}
+        : file_(path, CUSTOMER_RECORD_SIZE, CUSTOMER_DELETED_OFFSET) {}
 
-    uint16_t save(Customer& customer)
+    // True if a crash-leftover journal was replayed when the file opened.
+    bool recovered() const { return file_.recoveredOnOpen(); }
+    // True if a forward schema migration ran when the file opened.
+    bool migrated()  const { return file_.migratedOnOpen(); }
+
+    // Positional record count (live + soft-deleted) — the next id to assign.
+    std::size_t count() { return file_.count(); }
+    // Drop all records (projection rebuild from authoritative history).
+    void clear() { file_.clear(); }
+    // Deterministic content fingerprint of the projection (for drift detection).
+    uint32_t contentHash() { return file_.contentHash(); }
+    // Idempotent write at a known id: update if it exists, else append at the tail.
+    // Used by the projector so re-applying an event is byte-stable.
+    void upsertAt(const Customer& c)
     {
-        uint16_t id = static_cast<uint16_t>(file_.count());
+        if (c.getId() < static_cast<uint32_t>(file_.count())) {
+            char buf[CUSTOMER_RECORD_SIZE]; c.serialize(buf);
+            file_.update(c.getId(), buf);
+        } else {
+            Customer tmp = c;       // save() assigns id = count(); ids arrive in order
+            save(tmp);
+        }
+    }
+
+    uint32_t save(Customer& customer)
+    {
+        uint32_t id = static_cast<uint32_t>(file_.count());
         customer.setId(id);
         char buf[CUSTOMER_RECORD_SIZE];
         customer.serialize(buf);
@@ -31,16 +55,16 @@ public:
         return file_.update(customer.getId(), buf);
     }
 
-    bool remove(uint16_t id)
+    bool remove(uint32_t id)
     {
         char buf[CUSTOMER_RECORD_SIZE];
         if (!file_.read(id, buf)) return false;
         unsigned char flag = 1u;
-        std::memcpy(buf + CUST_DELETED_OFFSET, &flag, sizeof(flag));
+        std::memcpy(buf + CUSTOMER_DELETED_OFFSET, &flag, sizeof(flag));
         return file_.update(id, buf);
     }
 
-    Customer load(uint16_t id)
+    Customer load(uint32_t id)
     {
         char buf[CUSTOMER_RECORD_SIZE];
         Customer c;
@@ -55,9 +79,9 @@ public:
         char buf[CUSTOMER_RECORD_SIZE];
         const std::size_t n = file_.count();
         for (std::size_t i = 0; i < n; ++i) {
-            if (!file_.read(static_cast<uint16_t>(i), buf)) continue;
+            if (!file_.read(static_cast<uint32_t>(i), buf)) continue;
             unsigned char flag;
-            std::memcpy(&flag, buf + CUST_DELETED_OFFSET, sizeof(flag));
+            std::memcpy(&flag, buf + CUSTOMER_DELETED_OFFSET, sizeof(flag));
             if (flag) continue;
             Customer c;
             c.deserialize(buf);

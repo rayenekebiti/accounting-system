@@ -13,7 +13,6 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QDate>
-#include <QLocale>
 #include <stdexcept>
 
 PaymentEditorDialog::PaymentEditorDialog(QWidget* parent)
@@ -128,7 +127,7 @@ void PaymentEditorDialog::onPartyTypeChanged(int /*index*/)
     populatePartyCombo(m_partyTypeCombo->currentData().toInt());
 }
 
-void PaymentEditorDialog::setForAdd(unsigned short int nextId, const QString& suggestedNumber)
+void PaymentEditorDialog::setForAdd(uint32_t nextId, const QString& suggestedNumber)
 {
     m_id = nextId;
     m_isDeleted = false;
@@ -161,11 +160,13 @@ void PaymentEditorDialog::setForEdit(const Payment& existing)
 
     m_invoiceIdEdit->setValue(existing.getInvoiceId());
 
-    const QDate d = QLocale::c().toDate(
-        QString::fromUtf8(existing.getDate()), "d MMM yyyy");
-    m_dateEdit->setDate(d.isValid() ? d : QDate::currentDate());
+    const IsoDate& isoDate = existing.getDate();
+    QDate d = isoDate.isValid()
+        ? QDate(isoDate.year(), isoDate.month(), isoDate.day())
+        : QDate::currentDate();
+    m_dateEdit->setDate(d);
 
-    m_amountEdit->setValue(existing.getAmount());
+    m_amountEdit->setValue(existing.getAmount().toDouble());
 
     const int mIdx = m_methodCombo->findData(static_cast<int>(existing.getMethod()));
     m_methodCombo->setCurrentIndex(mIdx >= 0 ? mIdx : 0);
@@ -205,9 +206,12 @@ void PaymentEditorDialog::accept()
     if (!valid) return;
 
     try {
-        const QByteArray numBytes  = number.toUtf8();
-        const QByteArray dateBytes =
-            QLocale::c().toString(m_dateEdit->date(), "d MMM yyyy").toUtf8();
+        const QByteArray numBytes = number.toUtf8();
+
+        auto toIso = [](QDate d) {
+            auto opt = IsoDate::fromString(d.toString("yyyy-MM-dd").toStdString());
+            return opt.value_or(IsoDate{});
+        };
 
         const auto partyType = static_cast<PartyType>(
             m_partyTypeCombo->currentData().toInt());
@@ -217,11 +221,11 @@ void PaymentEditorDialog::accept()
         m_result = Payment(PaymentData{
             m_id,
             numBytes.constData(),
-            static_cast<unsigned short int>(m_invoiceIdEdit->value()),
-            static_cast<unsigned short int>(partyId),
+            static_cast<uint32_t>(m_invoiceIdEdit->value()),
+            static_cast<uint32_t>(partyId),
             partyType,
-            dateBytes.constData(),
-            m_amountEdit->value(),
+            toIso(m_dateEdit->date()),
+            Money::fromDouble(m_amountEdit->value()),
             method,
             m_isDeleted
         });

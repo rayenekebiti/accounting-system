@@ -27,7 +27,7 @@ private slots:
 private:
     void buildActions();
     void loadFromStorage();
-    unsigned short int computeNextId() const;
+    uint32_t computeNextId() const;
 
     SupplierTableModel*    m_model;
     QSortFilterProxyModel* m_proxy;

@@ -1,7 +1,6 @@
 #include "Product.h"
 #include <cstring>
 #include <stdexcept>
-#include <iostream>
 
 static void copyField(char* dest, std::size_t capacity, const char* src)
 {
@@ -12,7 +11,7 @@ static void copyField(char* dest, std::size_t capacity, const char* src)
 }
 
 Product::Product()
-    : id(0), price(0.0), cost(0.0), stock(0), isDeleted(false)
+    : id(0), price(), cost(), stock(0), isDeleted(false)
 {
     std::memset(code,        0, PRODUCT_CODE_LENGTH);
     std::memset(name,        0, PRODUCT_NAME_LENGTH);
@@ -23,108 +22,99 @@ Product::Product(const ProductData& info)
 {
     if (info.name == nullptr || info.name[0] == '\0')
         throw std::invalid_argument("Product name cannot be empty");
-    if (info.price < 0)
+    if (info.price.isNegative())
         throw std::invalid_argument("Product price cannot be negative");
-    if (info.cost < 0)
+    if (info.cost.isNegative())
         throw std::invalid_argument("Product cost cannot be negative");
 
     id = info.id;
     copyField(code,        PRODUCT_CODE_LENGTH, info.code);
     copyField(name,        PRODUCT_NAME_LENGTH, info.name);
     copyField(description, PRODUCT_DESC_LENGTH, info.description);
-    price = info.price;
-    cost  = info.cost;
-    stock = info.stock;
+    price     = info.price;
+    cost      = info.cost;
+    stock     = info.stock;
     isDeleted = info.isDeleted;
 }
 
 bool Product::isValid() const
 {
-    return name[0] != '\0' && price >= 0 && cost >= 0;
+    return name[0] != '\0' && !price.isNegative() && !cost.isNegative();
 }
 
 // Binary layout (PRODUCT_RECORD_SIZE = 192 bytes):
-//   0..1     id
-//   2..17    code         (16)
-//   18..81   name         (64)
-//   82..145  description  (64)
-//   146..153 price        (8)
-//   154..161 cost         (8)
-//   162..165 stock        (4)
-//   166      isDeleted    (1)
-//   167..191 padding      (25)
+//   0..3     id           (uint32_t)        ← widened from 2 bytes in v1
+//   4..19    code         (16)
+//   20..83   name         (64)
+//   84..147  description  (64)
+//   148..155 price        (8) int64_t cents
+//   156..163 cost         (8) int64_t cents
+//   164..167 stock        (int32_t)
+//   168      isDeleted    (1)              ← PRODUCT_DELETED_OFFSET
+//   169..191 padding      (23)
+static_assert(PRODUCT_DELETED_OFFSET == 168, "keep in sync with serialize layout");
+static_assert(4 + 16 + 64 + 64 + 8 + 8 + 4 + 1 <= PRODUCT_RECORD_SIZE,
+              "Product fields exceed PRODUCT_RECORD_SIZE");
+
 void Product::serialize(char* buffer) const
 {
     if (!isValid())
         throw std::logic_error("Cannot serialize Product with invalid state");
     std::memset(buffer, 0, PRODUCT_RECORD_SIZE);
-    std::memcpy(buffer + 0,   &id,          sizeof(id));
-    std::memcpy(buffer + 2,   code,         PRODUCT_CODE_LENGTH);
-    std::memcpy(buffer + 18,  name,         PRODUCT_NAME_LENGTH);
-    std::memcpy(buffer + 82,  description,  PRODUCT_DESC_LENGTH);
-    std::memcpy(buffer + 146, &price,       sizeof(price));
-    std::memcpy(buffer + 154, &cost,        sizeof(cost));
-    std::memcpy(buffer + 162, &stock,       sizeof(stock));
+    std::memcpy(buffer + 0,   &id,         sizeof(id));
+    std::memcpy(buffer + 4,   code,        PRODUCT_CODE_LENGTH);
+    std::memcpy(buffer + 20,  name,        PRODUCT_NAME_LENGTH);
+    std::memcpy(buffer + 84,  description, PRODUCT_DESC_LENGTH);
+    std::int64_t priceCents = price.cents();
+    std::memcpy(buffer + 148, &priceCents, sizeof(priceCents));
+    std::int64_t costCents  = cost.cents();
+    std::memcpy(buffer + 156, &costCents,  sizeof(costCents));
+    std::memcpy(buffer + 164, &stock,      sizeof(stock));
     unsigned char flag = isDeleted ? 1u : 0u;
-    std::memcpy(buffer + 166, &flag,        sizeof(flag));
+    std::memcpy(buffer + 168, &flag,       sizeof(flag));
 }
 
 void Product::deserialize(const char* buffer)
 {
-    std::memcpy(&id,          buffer + 0,   sizeof(id));
-    std::memcpy(code,         buffer + 2,   PRODUCT_CODE_LENGTH);
+    std::memcpy(&id,         buffer + 0,   sizeof(id));
+    std::memcpy(code,        buffer + 4,   PRODUCT_CODE_LENGTH);
     code[PRODUCT_CODE_LENGTH - 1] = '\0';
-    std::memcpy(name,         buffer + 18,  PRODUCT_NAME_LENGTH);
+    std::memcpy(name,        buffer + 20,  PRODUCT_NAME_LENGTH);
     name[PRODUCT_NAME_LENGTH - 1] = '\0';
-    std::memcpy(description,  buffer + 82,  PRODUCT_DESC_LENGTH);
+    std::memcpy(description, buffer + 84,  PRODUCT_DESC_LENGTH);
     description[PRODUCT_DESC_LENGTH - 1] = '\0';
-    std::memcpy(&price,       buffer + 146, sizeof(price));
-    std::memcpy(&cost,        buffer + 154, sizeof(cost));
-    std::memcpy(&stock,       buffer + 162, sizeof(stock));
+    std::int64_t priceCents;
+    std::memcpy(&priceCents, buffer + 148, sizeof(priceCents));
+    price = Money::fromCents(priceCents);
+    std::int64_t costCents;
+    std::memcpy(&costCents,  buffer + 156, sizeof(costCents));
+    cost = Money::fromCents(costCents);
+    std::memcpy(&stock,      buffer + 164, sizeof(stock));
     unsigned char flag;
-    std::memcpy(&flag,        buffer + 166, sizeof(flag));
+    std::memcpy(&flag,       buffer + 168, sizeof(flag));
     isDeleted = (flag != 0);
 }
 
-void Product::display() const
-{
-    std::cout << "[PRODUCT] ID:" << id
-              << " Code:" << code
-              << " Name:" << name
-              << " Price:" << price
-              << " Cost:" << cost
-              << " Stock:" << stock
-              << " Deleted:" << (isDeleted ? "yes" : "no") << "\n";
-}
+uint32_t Product::getId() const            { return id; }
+void Product::setId(uint32_t v)            { id = v; }
 
-unsigned short int Product::getId() const                   { return id; }
-void Product::setId(unsigned short int newId)               { id = newId; }
+const char* Product::getCode() const       { return code; }
+void Product::setCode(const char* c)       { copyField(code, PRODUCT_CODE_LENGTH, c); }
 
-const char* Product::getCode() const                        { return code; }
-void Product::setCode(const char* newCode)                  { copyField(code, PRODUCT_CODE_LENGTH, newCode); }
+const char* Product::getName() const       { return name; }
+void Product::setName(const char* n)       { copyField(name, PRODUCT_NAME_LENGTH, n); }
 
-const char* Product::getName() const                        { return name; }
-void Product::setName(const char* newName)                  { copyField(name, PRODUCT_NAME_LENGTH, newName); }
+const char* Product::getDescription() const { return description; }
+void Product::setDescription(const char* d) { copyField(description, PRODUCT_DESC_LENGTH, d); }
 
-const char* Product::getDescription() const                 { return description; }
-void Product::setDescription(const char* newDescription)    { copyField(description, PRODUCT_DESC_LENGTH, newDescription); }
+Money Product::getPrice() const            { return price; }
+void Product::setPrice(Money m)            { if (!m.isNegative()) price = m; }
 
-double Product::getPrice() const                            { return price; }
-void Product::setPrice(double newPrice)
-{
-    if (newPrice < 0) return;
-    price = newPrice;
-}
+Money Product::getCost() const             { return cost; }
+void Product::setCost(Money m)             { if (!m.isNegative()) cost = m; }
 
-double Product::getCost() const                             { return cost; }
-void Product::setCost(double newCost)
-{
-    if (newCost < 0) return;
-    cost = newCost;
-}
+int32_t Product::getStock() const          { return stock; }
+void Product::setStock(int32_t v)          { stock = v; }
 
-int Product::getStock() const                               { return stock; }
-void Product::setStock(int newStock)                        { stock = newStock; }
-
-bool Product::getIsDeleted() const                          { return isDeleted; }
-void Product::setIsDeleted(bool newIsDeleted)               { isDeleted = newIsDeleted; }
+bool Product::getIsDeleted() const         { return isDeleted; }
+void Product::setIsDeleted(bool v)         { isDeleted = v; }

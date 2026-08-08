@@ -5,6 +5,7 @@
 #include "components/tables/PaginationFooter.h"
 #include "models/CustomerTableModel.h"
 #include "dialogs/CustomerEditorDialog.h"
+#include "services/Exporter.h"
 #include "Customer.h"
 #include "storage/StorageService.h"
 #include "components/tables/PaginationProxy.h"
@@ -104,20 +105,21 @@ void CustomersPage::buildActions()
     connect(refreshAct, &QAction::triggered, this, &CustomersPage::onRefreshClicked);
 
     auto* exportAct = new QAction("Export", this);
-    exportAct->setEnabled(false);
-    exportAct->setToolTip("Export coming in a future release");
+    connect(exportAct, &QAction::triggered, this, [this] {
+        Exporter::toCsv(m_proxy, this);
+    });
 
     m_actions = { addAct, editAct, deactAct, refreshAct, exportAct };
 }
 
-unsigned short int CustomersPage::computeNextId() const
+uint32_t CustomersPage::computeNextId() const
 {
-    unsigned short int maxId = 1000;
+    uint32_t maxId = 1000;
     for (int i = 0; i < m_model->rowCount(); ++i) {
-        const unsigned short int id = m_model->at(i).getId();
+        const uint32_t id = m_model->at(i).getId();
         if (id > maxId) maxId = id;
     }
-    return static_cast<unsigned short int>(maxId + 1);
+    return maxId + 1;
 }
 
 void CustomersPage::onAddClicked()

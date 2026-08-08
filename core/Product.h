@@ -1,34 +1,39 @@
 #ifndef CORE_PRODUCT_H
 #define CORE_PRODUCT_H
 #include <cstddef>
+#include <cstdint>
+#include "Money.h"
 
 inline constexpr std::size_t PRODUCT_RECORD_SIZE      = 192;
 inline constexpr std::size_t PRODUCT_CODE_LENGTH      = 16;
 inline constexpr std::size_t PRODUCT_NAME_LENGTH      = 64;
 inline constexpr std::size_t PRODUCT_DESC_LENGTH      = 64;
 
+// Byte offset of the isDeleted flag within a serialized Product record.
+inline constexpr std::size_t PRODUCT_DELETED_OFFSET = 168;
+
 struct ProductData
 {
-    unsigned short int id;
-    const char*        code;          // SKU
-    const char*        name;
-    const char*        description;
-    double             price;         // selling price (>=0)
-    double             cost;          // purchase cost (>=0)
-    int                stock;         // current quantity on hand
-    bool               isDeleted;
+    uint32_t    id;
+    const char* code;          // SKU
+    const char* name;
+    const char* description;
+    Money       price;         // selling price (>=0)
+    Money       cost;          // purchase cost (>=0)
+    int32_t     stock;         // current quantity on hand
+    bool        isDeleted;
 };
 
 class Product
 {
-    unsigned short int id;
-    char               code[PRODUCT_CODE_LENGTH];
-    char               name[PRODUCT_NAME_LENGTH];
-    char               description[PRODUCT_DESC_LENGTH];
-    double             price;
-    double             cost;
-    int                stock;
-    bool               isDeleted;
+    uint32_t id;
+    char     code[PRODUCT_CODE_LENGTH];
+    char     name[PRODUCT_NAME_LENGTH];
+    char     description[PRODUCT_DESC_LENGTH];
+    Money    price;
+    Money    cost;
+    int32_t  stock;
+    bool     isDeleted;
 
 public:
     Product();
@@ -38,10 +43,9 @@ public:
 
     void serialize(char* buffer) const;
     void deserialize(const char* buffer);
-    void display() const;
 
-    unsigned short int getId() const;
-    void setId(unsigned short int newId);
+    uint32_t getId() const;
+    void setId(uint32_t newId);
 
     const char* getCode() const;
     void setCode(const char* newCode);
@@ -52,14 +56,14 @@ public:
     const char* getDescription() const;
     void setDescription(const char* newDescription);
 
-    double getPrice() const;
-    void setPrice(double newPrice);
+    Money getPrice() const;
+    void setPrice(Money newPrice);
 
-    double getCost() const;
-    void setCost(double newCost);
+    Money getCost() const;
+    void setCost(Money newCost);
 
-    int getStock() const;
-    void setStock(int newStock);
+    int32_t getStock() const;
+    void setStock(int32_t newStock);
 
     bool getIsDeleted() const;
     void setIsDeleted(bool newIsDeleted);

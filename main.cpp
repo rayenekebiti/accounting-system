@@ -7,6 +7,8 @@
 #include "app/MainWindow.h"
 #include "theme/ThemeManager.h"
 #include "storage/StorageService.h"
+#include "storage/MigrationV1.h"
+#include "storage/BackupService.h"
 
 int main(int argc, char* argv[])
 {
@@ -25,6 +27,11 @@ int main(int argc, char* argv[])
         QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(dataPath);
 
+    // One-shot v0→v1 migration: re-encodes double money fields as int64_t cents
+    // and localized date strings as ISO "YYYY-MM-DD". Backs up .dat files first.
+    // Only runs on first launch after the upgrade; writes a sentinel on success.
+    MigrationV1::runIfNeeded(dataPath.toStdString());
+
     if (!StorageService::instance().initialize(dataPath.toStdString())) {
         const QString reason = QString::fromStdString(
             StorageService::instance().lastInitError());
@@ -36,6 +43,11 @@ int main(int argc, char* argv[])
             "and that the folder is writable.");
         return 1;
     }
+
+    // Backup .dat files on clean exit (keeps last 14 snapshots)
+    const QString dataPathQ = QString::fromStdString(StorageService::instance().dataDir());
+    auto* backupSvc = new BackupService(dataPathQ, &app);
+    QObject::connect(&app, &QApplication::aboutToQuit, backupSvc, &BackupService::onAboutToQuit);
 
     MainWindow window;
     window.show();

@@ -76,12 +76,12 @@ QVariant PaymentTableModel::data(const QModelIndex& idx, int role) const
     const Payment& p = rows_[idx.row()];
     switch (idx.column()) {
         case ColNumber:    return QString::fromUtf8(p.getPaymentNumber());
-        case ColDate:      return QString::fromUtf8(p.getDate());
+        case ColDate:      return QString::fromStdString(p.getDate().toString());
         case ColParty:     return QString::asprintf("%s #%u", partyName(p.getPartyType()), p.getPartyId());
         case ColInvoiceId: return p.getInvoiceId() == 0
                                     ? QStringLiteral("—")
                                     : QString::number(p.getInvoiceId());
-        case ColAmount:    return QString::asprintf("$%.2f", p.getAmount());
+        case ColAmount:    return QString::asprintf("$%.2f", p.getAmount().toDouble());
         case ColMethod:    return QString::fromUtf8(methodName(p.getMethod()));
     }
     return {};

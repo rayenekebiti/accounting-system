@@ -26,7 +26,7 @@ private slots:
 private:
     void buildActions();
     void loadFromStorage();
-    unsigned short int computeNextId() const;
+    uint32_t computeNextId() const;
     QString suggestNextNumber() const;
 
     PaymentTableModel*     m_model;

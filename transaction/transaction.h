@@ -1,15 +1,18 @@
 #ifndef TRANSACTION_H
 #define TRANSACTION_H
+#include <cstdint>
 #include "../constants.h"
+
+inline constexpr std::size_t TRANSACTION_DELETED_OFFSET = 96;
 
 struct TransactionData
 {
-    unsigned short int id;
-    const char*        description;
-    double             amount;
-    const char*        date;
-    unsigned short int categoryId;
-    bool               isDeleted;
+    uint32_t    id;
+    const char* description;
+    double      amount;
+    const char* date;
+    uint32_t    categoryId;
+    bool        isDeleted;
 };
 
 struct RecurringTransactionData : TransactionData
@@ -21,11 +24,11 @@ struct RecurringTransactionData : TransactionData
 class Transaction
 {
 protected:
-    unsigned short int id;
+    uint32_t id;
     char description[MAX_DESCRIPTION_LENGTH];
     double amount;
     char date[MAX_DATE_LENGTH];
-    unsigned short int categoryId;
+    uint32_t categoryId;
     TransactionType type;
     bool isDeleted;
 
@@ -37,8 +40,8 @@ public:
     virtual void serialize(char* buffer) const = 0;
     virtual void deserialize(const char* buffer) = 0;
 
-    unsigned short int getId() const;
-    void setId(unsigned short int newId);
+    uint32_t getId() const;
+    void setId(uint32_t newId);
 
     const char* getDescription() const;
     void setDescription(const char* newDescription);
@@ -49,8 +52,8 @@ public:
     const char* getDate() const;
     void setDate(const char* newDate);
 
-    unsigned short int getCategoryId() const;
-    void setCategoryId(unsigned short int newCategoryId);
+    uint32_t getCategoryId() const;
+    void setCategoryId(uint32_t newCategoryId);
 
     bool getIsDeleted() const;
     void setIsDeleted(bool newIsDeleted);

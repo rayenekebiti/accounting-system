@@ -5,7 +5,11 @@
 #include "components/tables/PaginationProxy.h"
 #include "models/InvoiceTableModel.h"
 #include "dialogs/InvoiceEditorDialog.h"
+#include "services/Exporter.h"
+#include "services/InvoicePrinter.h"
 #include "Invoice.h"
+#include "Customer.h"
+#include "NumberingService.h"
 #include "storage/StorageService.h"
 #include <QAction>
 #include <QMessageBox>
@@ -115,24 +119,43 @@ void InvoicesPage::buildActions()
     connect(refreshAct, &QAction::triggered, this, &InvoicesPage::onRefreshClicked);
 
     auto* printAct = new QAction("Print", this);
-    printAct->setEnabled(false);
-    printAct->setToolTip("Print coming in a future release");
+    connect(printAct, &QAction::triggered, this, [this] {
+        const QModelIndex cur = m_table->tableView()->selectionModel()->currentIndex();
+        if (!cur.isValid()) return;
+        const int srcRow = m_filterProxy->mapToSource(
+            m_paginationProxy->mapToSource(cur)).row();
+        if (srcRow < 0 || srcRow >= m_model->rowCount()) return;
+        const Invoice& inv = m_model->at(srcRow);
+        try {
+            const auto custs = StorageService::instance().customers().loadAll();
+            for (const auto& c : custs) {
+                if (c.getId() == inv.getCustomerId()) {
+                    InvoicePrinter::print(inv, c, this);
+                    return;
+                }
+            }
+            QMessageBox::warning(this, "Print", "Customer not found for this invoice.");
+        } catch (const std::exception& e) {
+            QMessageBox::critical(this, "Print Error", QString::fromUtf8(e.what()));
+        }
+    });
 
     auto* exportAct = new QAction("Export", this);
-    exportAct->setEnabled(false);
-    exportAct->setToolTip("Export coming in a future release");
+    connect(exportAct, &QAction::triggered, this, [this] {
+        Exporter::toCsv(m_proxy, this);
+    });
 
     m_actions = { newAct, editAct, voidAct, printAct, refreshAct, exportAct };
 }
 
-unsigned short int InvoicesPage::computeNextId() const
+uint32_t InvoicesPage::computeNextId() const
 {
-    unsigned short int maxId = 0;
+    uint32_t maxId = 0;
     for (int i = 0; i < m_model->rowCount(); ++i) {
-        const unsigned short int id = m_model->at(i).getId();
+        const uint32_t id = m_model->at(i).getId();
         if (id > maxId) maxId = id;
     }
-    return static_cast<unsigned short int>(maxId + 1);
+    return maxId + 1;
 }
 
 QString InvoicesPage::suggestNextNumber() const
@@ -153,12 +176,17 @@ QString InvoicesPage::suggestNextNumber() const
 void InvoicesPage::onNewClicked()
 {
     InvoiceEditorDialog dlg(this);
-    dlg.setForAdd(computeNextId(), suggestNextNumber());
+    dlg.setForAdd(computeNextId(), NumberingService::reserveInvoiceNumber());
     if (dlg.exec() == QDialog::Accepted) {
         Invoice inv = dlg.invoice();
         if (StorageService::instance().isInitialized()) {
             try {
                 StorageService::instance().invoices().save(inv);
+                auto& lineRepo = StorageService::instance().invoiceLines();
+                for (auto line : dlg.lines()) {
+                    line.setInvoiceId(inv.getId());
+                    lineRepo.save(line);
+                }
             } catch (const std::exception& e) {
                 QMessageBox::critical(this, "Save Error", QString::fromUtf8(e.what()));
                 return;
@@ -223,6 +251,14 @@ void InvoicesPage::onRowDoubleClicked(int proxyRow)
         if (StorageService::instance().isInitialized()) {
             try {
                 StorageService::instance().invoices().update(inv);
+                // Replace all lines: mark existing as deleted, save the new set.
+                auto& lineRepo = StorageService::instance().invoiceLines();
+                for (auto& old : lineRepo.findByInvoice(inv.getId()))
+                    lineRepo.remove(old.getId());
+                for (auto line : dlg.lines()) {
+                    line.setInvoiceId(inv.getId());
+                    lineRepo.save(line);
+                }
             } catch (const std::exception& e) {
                 QMessageBox::critical(this, "Save Error", QString::fromUtf8(e.what()));
                 return;

@@ -58,8 +58,8 @@ QVariant ProductTableModel::data(const QModelIndex& idx, int role) const
         case ColCode:        return QString::fromUtf8(p.getCode());
         case ColName:        return QString::fromUtf8(p.getName());
         case ColDescription: return QString::fromUtf8(p.getDescription());
-        case ColPrice:       return QString::asprintf("$%.2f", p.getPrice());
-        case ColCost:        return QString::asprintf("$%.2f", p.getCost());
+        case ColPrice:       return QString::asprintf("$%.2f", p.getPrice().toDouble());
+        case ColCost:        return QString::asprintf("$%.2f", p.getCost().toDouble());
         case ColStock:       return p.getStock();
         case ColStatus: {
             if (p.getIsDeleted())   return QStringLiteral("Inactive");

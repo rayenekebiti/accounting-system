@@ -243,18 +243,18 @@ void DashboardPage::onActivated()
     const auto suppliers = StorageService::instance().suppliers().loadAll();
 
     // Customer name lookup
-    std::unordered_map<uint16_t, QString> custNames;
+    std::unordered_map<uint32_t, QString> custNames;
     for (const auto& c : customers)
         custNames[c.getId()] = QString::fromUtf8(c.getName());
 
     // KPIs
     double totalAR = 0.0;
     for (const auto& c : customers)
-        if (!c.getIsDeleted()) totalAR += c.getBalance();
+        if (!c.getIsDeleted()) totalAR += c.getBalance().toDouble();
 
     double totalAP = 0.0;
     for (const auto& s : suppliers)
-        if (!s.getIsDeleted()) totalAP += s.getBalance();
+        if (!s.getIsDeleted()) totalAP += s.getBalance().toDouble();
 
     const int currentYear = QDate::currentDate().year();
     const QDate today     = QDate::currentDate();
@@ -265,13 +265,12 @@ void DashboardPage::onActivated()
     for (const auto& inv : invoices) {
         if (inv.getIsDeleted()) continue;
         if (inv.getStatus() == INVOICE_PAID) {
-            const QDate d = QDate::fromString(
-                QString::fromUtf8(inv.getIssueDate()), "d MMM yyyy");
-            if (d.year() == currentYear) revenueYTD += inv.getTotal();
+            if (inv.getIssueDate().year() == currentYear)
+                revenueYTD += inv.getTotal().toDouble();
         }
         if (inv.getStatus() == INVOICE_OVERDUE) {
             ++overdueCount;
-            overdueTotal += inv.getTotal();
+            overdueTotal += inv.getTotal().toDouble();
         }
     }
 
@@ -300,9 +299,9 @@ void DashboardPage::onActivated()
         QList<QStandardItem*> row;
         row << new QStandardItem(QString::fromUtf8(inv->getInvoiceNumber()))
             << new QStandardItem(cName)
-            << new QStandardItem(QString::fromUtf8(inv->getIssueDate()))
-            << new QStandardItem(QString::fromUtf8(inv->getDueDate()))
-            << new QStandardItem(QString::asprintf("$%.2f", inv->getTotal()))
+            << new QStandardItem(QString::fromStdString(inv->getIssueDate().toString()))
+            << new QStandardItem(QString::fromStdString(inv->getDueDate().toString()))
+            << new QStandardItem(QString::asprintf("$%.2f", inv->getTotal().toDouble()))
             << new QStandardItem(invoiceStatusName(inv->getStatus()));
         rim->appendRow(row);
     }
@@ -316,8 +315,10 @@ void DashboardPage::onActivated()
     std::vector<std::pair<const Invoice*, int>> overdue;  // (invoice, daysOver)
     for (const auto& inv : invoices) {
         if (inv.getIsDeleted() || inv.getStatus() != INVOICE_OVERDUE) continue;
-        const QDate due = QDate::fromString(
-            QString::fromUtf8(inv.getDueDate()), "d MMM yyyy");
+        const auto dueIso = inv.getDueDate();
+        const QDate due = dueIso.isValid()
+            ? QDate(dueIso.year(), dueIso.month(), dueIso.day())
+            : QDate();
         const int days = due.isValid() ? due.daysTo(today) : 0;
         overdue.push_back({&inv, days});
     }
@@ -333,7 +334,7 @@ void DashboardPage::onActivated()
         QList<QStandardItem*> row;
         row << new QStandardItem(QString::fromUtf8(inv->getInvoiceNumber()))
             << new QStandardItem(cName)
-            << new QStandardItem(QString::asprintf("$%.2f", inv->getTotal()))
+            << new QStandardItem(QString::asprintf("$%.2f", inv->getTotal().toDouble()))
             << new QStandardItem(QString::number(qMax(0, days)));
         oim->appendRow(row);
     }

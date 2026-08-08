@@ -5,6 +5,7 @@
 #include "components/tables/PaginationFooter.h"
 #include "models/ProductTableModel.h"
 #include "dialogs/ProductEditorDialog.h"
+#include "services/Exporter.h"
 #include "Product.h"
 #include "storage/StorageService.h"
 #include "components/tables/PaginationProxy.h"
@@ -119,20 +120,21 @@ void ProductsPage::buildActions()
     adjustAct->setToolTip("Stock adjustments coming in a future release");
 
     auto* exportAct = new QAction("Export", this);
-    exportAct->setEnabled(false);
-    exportAct->setToolTip("Export coming in a future release");
+    connect(exportAct, &QAction::triggered, this, [this] {
+        Exporter::toCsv(m_proxy, this);
+    });
 
     m_actions = { addAct, editAct, deactAct, adjustAct, refreshAct, exportAct };
 }
 
-unsigned short int ProductsPage::computeNextId() const
+uint32_t ProductsPage::computeNextId() const
 {
-    unsigned short int maxId = 0;
+    uint32_t maxId = 0;
     for (int i = 0; i < m_model->rowCount(); ++i) {
-        const unsigned short int id = m_model->at(i).getId();
+        const uint32_t id = m_model->at(i).getId();
         if (id > maxId) maxId = id;
     }
-    return static_cast<unsigned short int>(maxId + 1);
+    return maxId + 1;
 }
 
 void ProductsPage::onAddClicked()
