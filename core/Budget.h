@@ -1,5 +1,6 @@
 #ifndef CORE_BUDGET_H
 #define CORE_BUDGET_H
+#include <cstddef>   // std::size_t
 #include <cstdint>
 #include "../constants.h"
 

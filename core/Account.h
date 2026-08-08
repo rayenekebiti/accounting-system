@@ -2,6 +2,7 @@
 #define ACCOUNT_H
 #include <iostream>
 #include <string>
+#include <cstddef>   // std::size_t
 #include <cstdint>
 #include "../constants.h"
 
